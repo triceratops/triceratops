@@ -1,16 +1,16 @@
 <html>
 <head>
 <title>TRICERATOPS</title>
-<script src="/js/jquery.js"></script>
-<script src="/js/codemirror/lib/codemirror.js"></script>
-<link rel="stylesheet" href="/js/codemirror/lib/codemirror.css">
-<script src="/js/codemirror/mode/javascript/javascript.js"></script>
-<link rel="stylesheet" href="/js/codemirror/theme/default.css">
-<script src="/js/Three.js"></script>
-<script src="/js/triceratops.js"></script>
+<script src="js/jquery.js"></script>
+<script src="js/codemirror/lib/codemirror.js"></script>
+<link rel="stylesheet" href="js/codemirror/lib/codemirror.css">
+<script src="js/codemirror/mode/javascript/javascript.js"></script>
+<link rel="stylesheet" href="js/codemirror/theme/default.css">
+<script src="js/Three.js"></script>
+<script src="js/triceratops.js"></script>
 </head> 
  
-<body onload="init()" onunload="closeWebSocket()">
+<body onload="triceratops.hatch()" onunload="triceratops.die()">
  
 <div id="pre">
   <label>what is your name?</label>
