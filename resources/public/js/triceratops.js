@@ -43,6 +43,48 @@ var triceratops = function() {
     $('#voice').val('');
   }
 
+  var gl = function() {
+    var camera, scene, renderer;
+    var geometry, material, mesh;
+
+    var init = function() {
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+      camera.position.z = 1000;
+      scene.add( camera );
+
+      geometry = new THREE.CubeGeometry( 200, 200, 200 );
+      material = new THREE.MeshBasicMaterial( { color: 0xff0000, wireframe: true } );
+
+      mesh = new THREE.Mesh( geometry, material );
+      scene.add( mesh );
+
+      renderer = new THREE.CanvasRenderer();
+      renderer.setSize( window.innerWidth, window.innerHeight );
+
+      document.body.appendChild( renderer.domElement );
+    }
+
+    var animate = function() {
+      requestAnimationFrame( animate );
+      render();
+    }
+
+    var render = function() {
+      mesh.rotation.x += 0.01;
+      mesh.rotation.y += 0.02;
+
+      renderer.render( scene, camera );
+    }
+
+    return {
+      init: init,
+      animate: animate,
+      render: render
+    }
+  }();
+
   var hatch = function() {
     openWebSocket();
 
@@ -58,6 +100,9 @@ var triceratops = function() {
         sendVoice();
       }
     });
+
+    gl.init();
+    gl.animate();
   }
 
   var die = function() {
@@ -67,6 +112,7 @@ var triceratops = function() {
   return {
     send: send,
     hatch: hatch,
-    die: die
+    die: die,
+    gl: gl
   }
 }();

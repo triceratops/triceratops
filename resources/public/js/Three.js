@@ -1,4 +1,19 @@
 // Three.js r46 - http://github.com/mrdoob/three.js
+  if ( !window.requestAnimationFrame ) {
+	  window.requestAnimationFrame = ( function() {
+		  return window.webkitRequestAnimationFrame ||
+		    window.mozRequestAnimationFrame ||
+		    window.oRequestAnimationFrame ||
+		    window.msRequestAnimationFrame ||
+		    function( /* function FrameRequestCallback */ callback, /* DOMElement Element */ element ) {
+			    window.setTimeout( callback, 1000 / 60 );
+		    };
+	  } )();
+  }
+
+
+
+
 var THREE=THREE||{};if(!self.Int32Array)self.Int32Array=Array,self.Float32Array=Array;THREE.Clock=function(a){this.autoStart=a!==void 0?a:!0;this.elapsedTime=this.oldTime=this.startTime=0;this.running=!1};THREE.Clock.prototype.start=function(){this.oldTime=this.startTime=Date.now();this.running=!0};THREE.Clock.prototype.stop=function(){this.getElapsedTime();this.running=!1};THREE.Clock.prototype.getElapsedTime=function(){this.elapsedTime+=this.getDelta();return this.elapsedTime};
 THREE.Clock.prototype.getDelta=function(){var a=0;this.autoStart&&!this.running&&this.start();if(this.running){var c=Date.now(),a=0.001*(c-this.oldTime);this.oldTime=c;this.elapsedTime+=a}return a};THREE.Color=function(a){a!==void 0&&this.setHex(a);return this};
 THREE.Color.prototype={constructor:THREE.Color,r:1,g:1,b:1,copy:function(a){this.r=a.r;this.g=a.g;this.b=a.b;return this},copyGammaToLinear:function(a){this.r=a.r*a.r;this.g=a.g*a.g;this.b=a.b*a.b;return this},copyLinearToGamma:function(a){this.r=Math.sqrt(a.r);this.g=Math.sqrt(a.g);this.b=Math.sqrt(a.b);return this},setRGB:function(a,c,b){this.r=a;this.g=c;this.b=b;return this},setHSV:function(a,c,b){var d,g,f;if(b===0)this.r=this.g=this.b=0;else switch(d=Math.floor(a*6),g=a*6-d,a=b*(1-c),f=b*(1-
