@@ -1,6 +1,8 @@
 var triceratops = function() {
   var socket;
   var name;
+  var editor;
+  var hline;
 
   var openWebSocket = function() {
     if (window.WebSocket) {
@@ -38,6 +40,8 @@ var triceratops = function() {
     $('#chat').show();
   }
 
+
+
   var sendVoice = function() {
     send($('#voice').val()); 
     $('#voice').val('');
@@ -64,28 +68,48 @@ var triceratops = function() {
       renderer.setSize( window.innerWidth, window.innerHeight );
 
       document.body.appendChild( renderer.domElement );
-    }
+    };
 
     var animate = function() {
       requestAnimationFrame( animate );
       render();
-    }
+    };
 
     var render = function() {
       mesh.rotation.x += 0.01;
       mesh.rotation.y += 0.02;
 
       renderer.render( scene, camera );
-    }
+    };
 
     return {
       init: init,
       animate: animate,
-      render: render
-    }
+      render: render,
+
+      camera: camera, 
+      scene: scene, 
+      renderer: renderer,
+      geometry: geometry, 
+      material: material, 
+      mesh: mesh
+    };
   }();
 
+  var setupCodeMirror = function() {
+    editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+      mode: "javascript",
+      lineNumbers: true,
+      onCursorActivity: function() {
+        editor.setLineClass(hlLine, null);
+        hlLine = editor.setLineClass(editor.getCursor().line, "activeline");
+      }
+    });
+    hlLine = editor.setLineClass(0, "activeline");
+  };
+
   var hatch = function() {
+    setupCodeMirror();
     openWebSocket();
 
     $('#chat').hide();
