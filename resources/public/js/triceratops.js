@@ -95,7 +95,7 @@ var triceratops = function() {
       }
     });
 
-    $('#voice').keypress(function(e) {
+    $('#code').keypress(function(e) {
       if (e.which === 13) {
         sendVoice();
       }
