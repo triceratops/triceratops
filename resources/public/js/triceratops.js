@@ -39,8 +39,8 @@ var triceratops = function() {
   }
 
   var sendVoice = function() {
-    send($('#voice').val()); 
-    $('#voice').val('');
+    send($('#code').val()); 
+    $('#code').val('');
   }
 
   var gl = function() {
@@ -89,15 +89,10 @@ var triceratops = function() {
     openWebSocket();
 
     $('#chat').hide();
-    $('#name').keypress(function(e) {
+    $('#name').keypress(function(e) 
+    {
       if (e.which === 13) {
         sendName();
-      }
-    });
-
-    $('#code').keypress(function(e) {
-      if (e.which === 13) {
-        sendVoice();
       }
     });
 

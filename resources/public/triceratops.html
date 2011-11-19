@@ -96,7 +96,12 @@ lineNumbers: true,
 onCursorActivity: function() {
 editor.setLineClass(hlLine, null);
 hlLine = editor.setLineClass(editor.getCursor().line, "activeline");
+
+},
+onChange: function() ) {
+  triceratops.send( "")
 }
+
 });
 var hlLine = editor.setLineClass(0, "activeline");
 </script>
