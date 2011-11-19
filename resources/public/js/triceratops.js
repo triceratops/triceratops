@@ -3,7 +3,7 @@ var name;
 
 function openWebSocket() {
   if (window.WebSocket) {
-    socket = new WebSocket('ws://triceratops.me:11111');
+    socket = new WebSocket('ws://triceratops.me:11122');
     socket.onopen    = function(event) { $('#alert').html('channel open!'); };
     socket.onclose   = function(event) { $('#alert').html('channel closed'); };
     socket.onmessage = function(event) { parse(event.data); };
