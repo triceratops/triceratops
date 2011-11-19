@@ -12,7 +12,7 @@
       (siphon broadcast ch))))
 
 (defn start []
-  (start-http-server coder {:port 11111 :websocket true}))
+  (start-http-server coder {:port 11122 :websocket true}))
 
 (defn -main []
   (start))
