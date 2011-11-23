@@ -2,6 +2,12 @@
 
 collaborative realtime livecoding in the browser
 
+## Dependencies
+
+Leiningen - Clojure build tool
+Get it here: https://github.com/technomancy/leiningen
+Learn it here: http://alexott.net/en/clojure/ClojureLein.html
+
 ## Usage
 
 lein deps
