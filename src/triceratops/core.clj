@@ -1,5 +1,5 @@
 (ns triceratops.core
-  (:use [lamina.core :only (channel receive siphon map*)])
+  (:use [lamina.core :only (channel enqueue receive siphon map*)])
   (:use [aleph.http :only (start-http-server)]))
 
 (def broadcast (channel))
@@ -8,7 +8,15 @@
 (defn coder [ch handshake]
   (receive ch
     (fn [name]
-      (siphon (map* #(str name ": " %) ch) broadcast)
+      (println (str name " joined"))
+      (enqueue broadcast (str ":join " name))
+      (siphon
+       (map*
+        #(let [m (if % (str name ": " %) (str name " left"))]
+           (println m)
+           m)
+        ch)
+       broadcast)
       (siphon broadcast ch))))
 
 (defn start []
@@ -16,3 +24,4 @@
 
 (defn -main []
   (start))
+

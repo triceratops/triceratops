@@ -5,6 +5,9 @@ var triceratops = function() {
   var hline;
 
   var openWebSocket = function() {
+    if (window.MozWebSocket) {
+      window.WebSocket = window.MozWebSocket;
+    }
     if (window.WebSocket) {
       socket = new WebSocket('ws://127.0.0.1:11122');
       socket.onopen    = function(event) { $('#alert').html('channel open!'); };
@@ -17,7 +20,7 @@ var triceratops = function() {
 
   var closeWebSocket = function() {
     socket.close();
-  }
+  };
 
   var send = function(message) {
     if (!window.WebSocket) { return; }
@@ -26,26 +29,25 @@ var triceratops = function() {
     } else {
       alert('The WebSocket is not open!');
     }
-  }
+  };
 
   var parse = function( response ) {
     $('#out').append(response+"<br/>");
-  }
+  };
 
   var sendName = function() {
     name = $('#name').val();
     send(name); 
     $('title').html(name);
     $('#pre').hide();
-    $('#chat').show();
-  }
-
-
+    $('#workspace').show();
+  };
 
   var sendVoice = function() {
-    send($('#voice').val()); 
+    var voice = $('#voice').val() || ':nil';
+    send(voice);
     $('#voice').val('');
-  }
+  };
 
   var gl = function() {
     var camera, scene, renderer;
@@ -63,6 +65,37 @@ var triceratops = function() {
 
       mesh = new THREE.Mesh( geometry, material );
       scene.add( mesh );
+
+      // set up the sphere vars
+      var radius = 50, segments = 16, rings = 16;
+
+      var sphereMaterial = new THREE.MeshLambertMaterial(
+        {
+          color: 0xCC0000
+        });
+
+      // create a new mesh with sphere geometry -
+      // we will cover the sphereMaterial next!
+      var sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(radius,
+                                 segments,
+                                 rings),
+
+        sphereMaterial);
+
+      // add the sphere to the scene
+      scene.add(sphere);
+
+      // create a point light
+      var pointLight = new THREE.PointLight( 0xFFFFFF );
+
+      // set its position
+      pointLight.position.x = 10;
+      pointLight.position.y = 50;
+      pointLight.position.z = 130;
+
+      // add to the scene
+      scene.add(pointLight);
 
       renderer = new THREE.WebGLRenderer();
       renderer.setSize( window.innerWidth, window.innerHeight );
@@ -101,25 +134,25 @@ var triceratops = function() {
       mode: "javascript",
       lineNumbers: true,
       onCursorActivity: function() {
-        editor.setLineClass(hlLine, null);
-        hlLine = editor.setLineClass(editor.getCursor().line, "activeline");
+        editor.setLineClass(hline, null);
+        hline = editor.setLineClass(editor.getCursor().line, "activeline");
       }
     });
-    hlLine = editor.setLineClass(0, "activeline");
+    hline = editor.setLineClass(0, "activeline");
   };
 
   var hatch = function() {
     setupCodeMirror();
     openWebSocket();
 
-    $('#chat').hide();
+    $('#workspace').hide();
     $('#name').keypress(function(e) {
       if (e.which === 13) {
         sendName();
       }
     });
 
-    $('#code').keypress(function(e) {
+    $('#voice').keypress(function(e) {
       if (e.which === 13) {
         sendVoice();
       }
@@ -127,16 +160,17 @@ var triceratops = function() {
 
     gl.init();
     gl.animate();
-  }
+  };
 
   var die = function() {
+    send(':die');
     closeWebSocket();
-  }
+  };
 
   return {
     send: send,
     hatch: hatch,
     die: die,
     gl: gl
-  }
+  };
 }();
