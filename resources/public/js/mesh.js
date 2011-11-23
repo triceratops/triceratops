@@ -5,7 +5,7 @@ var mesh = function() {
     return function() {
       last += 1;
       return last;
-    }
+    };
   }();
 
   var node = function(def) {
@@ -19,6 +19,12 @@ var mesh = function() {
     var discoverNeighbors = function() {};
     var sendNeighbor = function(neighbor, message) {};
     var broadcast = function(message) {};
+    var establishConnection = function(remote) {};
+    var sendChannel = function(channel, message) {};
+    var receiveChannel = function(channel) {};
+
+    var randomWalk = function() {};
+    var update = function() {};
 
     return {
       
