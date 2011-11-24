@@ -35,7 +35,7 @@ var triceratops = function() {
     $('#out').append(response+"<br/>");
   };
 
-  var sendName = function() {
+  var identify = function() {
     name = $('#name').val();
     send(name); 
     $('title').html(name);
@@ -43,9 +43,9 @@ var triceratops = function() {
     $('#workspace').show();
   };
 
-  var sendVoice = function() {
-    var voice = $('#voice').val() || ':nil';
-    send(voice);
+  var say = function() {
+    var voice = $('#voice').val() || ':say';
+    send(":say "+voice);
     $('#voice').val('');
   };
 
@@ -100,7 +100,7 @@ var triceratops = function() {
       renderer = new THREE.WebGLRenderer();
       renderer.setSize( window.innerWidth, window.innerHeight );
 
-      document.body.appendChild( renderer.domElement );
+      $('#gl').append( renderer.domElement );
     };
 
     var animate = function() {
@@ -148,13 +148,13 @@ var triceratops = function() {
     $('#workspace').hide();
     $('#name').keypress(function(e) {
       if (e.which === 13) {
-        sendName();
+        identify();
       }
     });
 
     $('#voice').keypress(function(e) {
       if (e.which === 13) {
-        sendVoice();
+        say();
       }
     });
 
@@ -163,7 +163,7 @@ var triceratops = function() {
   };
 
   var die = function() {
-    send(':die');
+    send(':leave');
     closeWebSocket();
   };
 
