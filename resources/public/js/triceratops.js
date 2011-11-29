@@ -41,6 +41,22 @@ var triceratops = function() {
     $('#coders ul').html(codersList);
   };
 
+  var updateCursor = function(nick, cursor) {
+    var next = {line: cursor.line, ch: cursor.ch+1};
+    var other = coders[nick];
+
+    if (other.box) other.box.clear();
+    other.cursor = cursor;
+    other.box = editor.markText(cursor, next, 'other');
+  }
+
+  var updateCode = function(message) {
+    console.log(message);
+    if (message.nick !== self.nick) {
+      editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
+    }
+  }
+
   var addCoder = function(base) {
     coders[base.nick] = coder(base);
     updateCodersList(coders);
@@ -56,6 +72,12 @@ var triceratops = function() {
     },
     say: function(message) {
       $('#out').append('<div class="chat"><span class="nick">'+message.nick+': </span><span class="statement">'+message.message+"</span></div>");
+    },
+    cursor: function(message) {
+      updateCursor(message.nick, message.cursor);
+    },
+    code: function(message) {
+      updateCode(message);
     },
     disconnect: function(message) {
       delete coders[message.nick];
@@ -167,11 +189,32 @@ var triceratops = function() {
   var cursorActivity = function() {
     editor.setLineClass(hline, null);
     hline = editor.setLineClass(editor.getCursor().line, "activeline");
-    console.log('cursor: '+editor.getCursor());
+    self.cursor = editor.getCursor();
+    self.selection = editor.getSelection();
+    send({
+      nick: self.nick, 
+      op: 'cursor', 
+      cursor: self.cursor, 
+      selection: self.selection
+    });
+  }
+
+  var compareCursors = function(a, b) {
+    console.log(''+a.ch+' '+b.ch);
+    return (a.line === b.line) && ((a.ch === b.ch) || (1 === a.ch - b.ch));
   }
 
   var codeChange = function(editor, info) {
-    console.log('change: '+info);
+    console.log(info);
+    self.cursor = editor.getCursor();
+    self.selection = editor.getSelection();
+    if (compareCursors(self.cursor, info.from)) {
+      send({
+        nick: self.nick, 
+        op: 'code', 
+        info: info
+      });
+    }
   }
 
   var setupCodeMirror = function() {

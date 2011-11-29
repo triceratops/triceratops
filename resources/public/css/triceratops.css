@@ -1,0 +1,13 @@
+.CodeMirror {
+    border-top: 1px solid black; 
+    border-bottom: 1px solid black;
+}
+
+.activeline {
+    background: #f0fcff !important;
+}
+
+.other {
+    color: #4488cc;
+    background: #000000 !important;
+}

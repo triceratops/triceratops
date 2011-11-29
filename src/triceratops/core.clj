@@ -31,7 +31,6 @@
   (let [coder (Coder. (request :message) "#1155cc" {:line 0 :ch 0} [])]
     (dosync
      (alter coders merge {(keyword (:nick coder)) coder}))
-    (println (str (:nick coder) " connected"))
     (enqueue ch (encode {:op :coders :coders @coders}))
     (encode {:op :connect :nick (:nick coder)})))
 
@@ -43,6 +42,16 @@
   (enqueue ch (encode {:op :quit}))
   raw)
 
+(defn coder-cursor
+  [ch raw request]
+  (dosync
+   (alter coders assoc-in [(keyword (request :nick)) :cursor] (request :cursor)))
+  raw)
+
+(defn coder-change
+  [ch raw request]
+  raw)
+
 (defn respond
   "Responds to the incoming raw message in various ways based on the value of :op,
   potentially adding messages back into ch."
@@ -51,6 +60,8 @@
     (condp = (keyword (request :op))
       :identify (coder-connect ch request)
       :say raw
+      :cursor (coder-cursor ch raw request)
+      :code (coder-change ch raw request)
       :disconnect (coder-disconnect ch raw request)
       :quit (do (close ch) ""))))
 
@@ -90,8 +101,8 @@
      [:link {:rel "stylesheet" :href "/js/codemirror/theme/default.css"}]
      [:script {:src "/js/Three.js"}]
      [:script {:src "/js/triceratops.js"}]
-     [:style {:type "text/css"} "\n  .CodeMirror {border-top: 1px solid black; border-bottom: 1px solid black;}\n  .activeline {background: #f0fcff !important;}"]]
-    block]))
+     [:link {:rel "stylesheet" :href "/css/triceratops.css"}]
+    block]]))
 
 (defn home
   [params]

@@ -1,20 +1,20 @@
-# triceratops
+# Triceratops
 
 collaborative realtime livecoding in the browser
 
 ## Dependencies
 
-Leiningen - Clojure build tool
-Get it here: https://github.com/technomancy/leiningen
-Learn it here: http://alexott.net/en/clojure/ClojureLein.html
+leiningen: https://github.com/technomancy/leiningen
 
 ## Usage
 
-lein deps
-lein run 
+> lein deps
+> lein run 
+
+Then navigate to http://localhost:11133 and funnel down the funnel.
 
 ## License
 
-Copyright (C) 2011 
+copyright (C) 2011 Ryan Spangler
 
-Distributed under the Eclipse Public License, the same as Clojure.
+distributed under the Eclipse Public License, the same as Clojure.
