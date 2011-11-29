@@ -23,7 +23,7 @@ var triceratops = function() {
   var send = function(message) {
     if (!window.WebSocket) { return; }
     if (socket.readyState == (WebSocket.OPEN || 1)) {
-      socket.send(message);
+      socket.send(JSON.stringify(message));
     } else {
       alert('The WebSocket is not open!');
     }
@@ -44,41 +44,36 @@ var triceratops = function() {
       addCoder(message); 
     },
     say: function(message) {
-      var nick = message.match(/^\w+/);
-      var statement = message.replace(/^\w+\s+/, '');
-      $('#out').append('<div class="chat"><span class="nick">'+nick+': </span><span class="statement">'+statement+"</span></div>");
+      $('#out').append('<div class="chat"><span class="nick">'+message.nick+': </span><span class="statement">'+message.message+"</span></div>");
     },
     leave: function(message) {
-      $('#out').append(message+" left<br/>");
+      $('#out').append(message.nick+" left<br/>");
     }
   }
 
-  var parseCommand = function(response) {
-    return response.replace(/^:([a-zA-Z]+).*/, function(n, m) {return m});
-  }
-
-  var parseMessage = function(response) {
-    return response.replace(/^:([a-zA-Z]+)\s+/, '');
-  }
-
-  var receive = function( response ) {
-    var command = parseCommand(response);
-    var message = parseMessage(response);
-    commands[command](message);
+  var receive = function(raw) {
+    var message = JSON.parse(raw);
+    commands[message.op](message);
   };
 
   var identify = function() {
     var nick = $('#name').val();
     self = coder(nick);
-    send(nick); 
+    send({op: 'identify', message: nick});
     $('title').html(nick);
     $('#pre').hide();
     $('#workspace').show();
   };
 
   var say = function() {
-    var voice = $('#voice').val() || ':say';
-    send(":say "+voice);
+    var speak = $('#voice').val();
+    var voice = {
+      nick: self.nick,
+      op: 'say',
+      message: speak
+    };
+
+    send(voice);
     $('#voice').val('');
   };
 
@@ -190,7 +185,7 @@ var triceratops = function() {
   };
 
   var die = function() {
-    send(':leave');
+    send({nick: self.nick, op: 'quit'});
     closeWebSocket();
   };
 

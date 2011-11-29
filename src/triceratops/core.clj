@@ -1,5 +1,6 @@
 (ns triceratops.core
   (:use [clojure.string :only (split join trim)]
+        [cheshire.core :only (generate-string parse-string)]
         [lamina.core :only (permanent-channel enqueue receive siphon map* close)]
         [aleph.http :only (start-http-server)]))
 
@@ -7,22 +8,32 @@
 (def workspaces (ref {}))
 (def coders (ref {}))
 
+(defn encode
+  [structure]
+  (generate-string structure))
+
+(defn decode
+  "message: the string to be decoded
+  Takes a string and interprets it as a structured map."
+  [message]
+  (parse-string message true))
+
 (defn coder-connect
   "nick: the given nickname of the new coder
   Register the coder with the system."
   [nick]
   (println (str nick " connected"))
-  (enqueue broadcast (str ":connect " nick)))
+  (enqueue broadcast (encode {:op :connect :nick nick})))
 
 (defn respond
-  [nick ch message]
-  (let [parts (split (trim message) #" +")]
-    (condp = (first parts)
-      ":say" (join " " (concat [(first parts) nick] (rest parts)))
-      ":leave" (do
-                 (enqueue ch ":close")
-                 (str message " " nick))
-      ":close" (do (close ch) ""))))
+  [nick ch raw]
+  (let [request (decode raw)]
+  (condp = (keyword (request :op))
+    :say raw
+    :leave (let [close-message (encode {:op :quit})]
+             (enqueue ch close-message)
+             raw)
+    :quit (do (close ch) ""))))
 
 (defn process
   "nick: where this message originated from
@@ -30,8 +41,8 @@
   This function produces a function which responds to messages,
   given a nick and incoming channel."
   [nick ch]
-  (fn [message]
-    (let [response (respond nick ch message)]
+  (fn [raw]
+    (let [response (respond nick ch raw)]
       (println response)
       response)))
 
