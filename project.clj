@@ -4,8 +4,8 @@
                  [org.clojure/algo.generic "0.1.1-SNAPSHOT"]
                  [org.clojars.smallrivers/aleph "0.2.1-SNAPSHOT"]
                  [cheshire "2.0.3"]]
-  :dev-dependencies [[swank-clojure "1.4.0-SNAPSHOT"]]
+  :dev-dependencies [[swank-clojure "1.4.0-SNAPSHOT"]
+                     [backtype/autodoc "0.9.0-SNAPSHOT"]]
   :main triceratops.core
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"
-                 "jboss" "http://repository.jboss.org/nexus/content/groups/public/"})
+                 "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"})

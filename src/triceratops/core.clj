@@ -9,23 +9,24 @@
 (def coders (ref {}))
 
 (defn encode
+  "Takes a map defined by structure and encodes it into a string."
   [structure]
   (generate-string structure))
 
 (defn decode
-  "message: the string to be decoded
-  Takes a string and interprets it as a structured map."
+  "Takes a string and interprets it into a structured map."
   [message]
   (parse-string message true))
 
 (defn coder-connect
-  "request: a map with information about the coder
-  Register the coder with the system."
+  "Registers the coder with the system based on the given request."
   [request]
   (println (str (request :message) " connected"))
   (enqueue broadcast (encode {:op :connect :nick (request :message)})))
 
 (defn respond
+  "Responds to the incoming raw message in various ways based on the value of :op,
+  potentially adding messages back into ch."
   [ch raw]
   (let [request (decode raw)]
   (condp = (keyword (request :op))
@@ -37,9 +38,8 @@
     :quit (do (close ch) ""))))
 
 (defn process
-  "ch: the channel of the incoming message
-  This function produces a function which responds to messages,
-  given a nick and incoming channel."
+  "Produces a function which responds to incoming messages,
+  sometimes sending messages back along this same channel."
   [ch]
   (fn [raw]
     (let [response (respond ch raw)]
@@ -47,19 +47,19 @@
       response)))
 
 (defn coder
-  "ch: the newly created channel where messages from this coder will be sent
-  handshake: websockets handshake
-  Register the new coder and establish the channel it will use to broadcast
-  to other coders "
+  "Registers the new coder with the system and establishes
+  the channel it will use to broadcast to other coders."
   [ch handshake]
   (siphon
    (map* (process ch) ch)
    broadcast)
   (siphon broadcast ch))
 
-(defn start []
-  (start-http-server coder {:port 11122 :websocket true}))
+(defn start
+  "Starts the websocket server."
+  [handler port]
+  (start-http-server handler {:port port :websocket true}))
 
 (defn -main []
-  (start))
+  (start coder 11122))
 
