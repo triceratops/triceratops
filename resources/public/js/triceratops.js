@@ -38,7 +38,7 @@ var triceratops = function() {
   var addCoder = function(base) {
     coders[base.nick] = coder(base);
     var codersList = _.map(_.keys(coders), function(nick) {return '<li>'+nick+'</li>'}).join('');
-    $('#coders').html('<ul>'+codersList+'</ul>');
+    $('#coders ul').html(codersList);
   };
 
   var commands = {
