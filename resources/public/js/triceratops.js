@@ -1,5 +1,5 @@
 var triceratops = function() {
-  var socket, self, editor, hline;
+  var socket, self, editor, hline, workspace;
   var coders = {};
 
   var openWebSocket = function() {
@@ -165,7 +165,7 @@ var triceratops = function() {
     hline = editor.setLineClass(0, "activeline");
   };
 
-  var hatch = function() {
+  var hatch = function(workspace) {
     setupCodeMirror();
     openWebSocket();
 
@@ -191,10 +191,19 @@ var triceratops = function() {
     closeWebSocket();
   };
 
+  var home = function() {
+    $('#funnel').keypress(function(e) {
+      if (e.which === 13) {
+        window.location = "/w/"+$('#funnel').val();
+      }
+    });
+  };
+
   return {
     send: send,
     hatch: hatch,
     die: die,
+    home: home,
     gl: gl,
     coders: coders
   };
