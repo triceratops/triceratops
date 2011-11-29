@@ -29,15 +29,17 @@ var triceratops = function() {
     }
   };
 
-  var coder = function(nick) {
+  var coder = function(base) {
     return {
-      nick: nick
-    }
-  }
+      nick: base.nick
+    };
+  };
 
-  var addCoder = function(nick) {
-    coders[nick] = coder(nick);
-  }
+  var addCoder = function(base) {
+    coders[base.nick] = coder(base);
+    var codersList = _.map(_.keys(coders), function(nick) {return '<li>'+nick+'</li>'}).join('');
+    $('#coders').html('<ul>'+codersList+'</ul>');
+  };
 
   var commands = {
     connect: function(message) {
@@ -46,7 +48,7 @@ var triceratops = function() {
     say: function(message) {
       $('#out').append('<div class="chat"><span class="nick">'+message.nick+': </span><span class="statement">'+message.message+"</span></div>");
     },
-    leave: function(message) {
+    disconnect: function(message) {
       $('#out').append(message.nick+" left<br/>");
     }
   }
@@ -58,7 +60,7 @@ var triceratops = function() {
 
   var identify = function() {
     var nick = $('#name').val();
-    self = coder(nick);
+    self = coder({nick: nick});
     send({op: 'identify', message: nick});
     $('title').html(nick);
     $('#pre').hide();
@@ -193,6 +195,7 @@ var triceratops = function() {
     send: send,
     hatch: hatch,
     die: die,
-    gl: gl
+    gl: gl,
+    coders: coders
   };
 }();

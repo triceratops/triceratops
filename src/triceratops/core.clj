@@ -22,7 +22,7 @@
   "Registers the coder with the system based on the given request."
   [request]
   (println (str (request :message) " connected"))
-  (enqueue broadcast (encode {:op :connect :nick (request :message)})))
+  (encode {:op :connect :nick (request :message)}))
 
 (defn respond
   "Responds to the incoming raw message in various ways based on the value of :op,
@@ -30,7 +30,7 @@
   [ch raw]
   (let [request (decode raw)]
   (condp = (keyword (request :op))
-    :identify (do (coder-connect request) raw)
+    :identify (coder-connect request)
     :say raw
     :disconnect (let [close-message (encode {:op :quit})]
                   (enqueue ch close-message)
