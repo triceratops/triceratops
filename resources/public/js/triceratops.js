@@ -1,8 +1,6 @@
 var triceratops = function() {
-  var socket;
-  var name;
-  var editor;
-  var hline;
+  var socket, self, editor, hline;
+  var coders = {};
 
   var openWebSocket = function() {
     if (window.MozWebSocket) {
@@ -12,7 +10,7 @@ var triceratops = function() {
       socket = new WebSocket('ws://127.0.0.1:11122');
       socket.onopen    = function(event) { $('#alert').html('channel open!'); };
       socket.onclose   = function(event) { $('#alert').html('channel closed'); };
-      socket.onmessage = function(event) { parse(event.data); };
+      socket.onmessage = function(event) { receive(event.data); };
     } else {
       alert('Your browser does not support WebSockets yet.');
     }
@@ -31,14 +29,49 @@ var triceratops = function() {
     }
   };
 
-  var parse = function( response ) {
-    $('#out').append(response+"<br/>");
+  var coder = function(nick) {
+    return {
+      nick: nick
+    }
+  }
+
+  var addCoder = function(nick) {
+    coders[nick] = coder(nick);
+  }
+
+  var commands = {
+    connect: function(message) {
+      addCoder(message); 
+    },
+    say: function(message) {
+      var nick = message.match(/^\w+/);
+      var statement = message.replace(/^\w+\s+/, '');
+      $('#out').append('<div class="chat"><span class="nick">'+nick+': </span><span class="statement">'+statement+"</span></div>");
+    },
+    leave: function(message) {
+      $('#out').append(message+" left<br/>");
+    }
+  }
+
+  var parseCommand = function(response) {
+    return response.replace(/^:([a-zA-Z]+).*/, function(n, m) {return m});
+  }
+
+  var parseMessage = function(response) {
+    return response.replace(/^:([a-zA-Z]+)\s+/, '');
+  }
+
+  var receive = function( response ) {
+    var command = parseCommand(response);
+    var message = parseMessage(response);
+    commands[command](message);
   };
 
   var identify = function() {
-    name = $('#name').val();
-    send(name); 
-    $('title').html(name);
+    var nick = $('#name').val();
+    self = coder(nick);
+    send(nick); 
+    $('title').html(nick);
     $('#pre').hide();
     $('#workspace').show();
   };
@@ -66,21 +99,15 @@ var triceratops = function() {
       mesh = new THREE.Mesh( geometry, material );
       scene.add( mesh );
 
-      // set up the sphere vars
       var radius = 50, segments = 16, rings = 16;
+      var sphereMaterial = new THREE.MeshLambertMaterial({
+        color: 0xCC0000
+      });
 
-      var sphereMaterial = new THREE.MeshLambertMaterial(
-        {
-          color: 0xCC0000
-        });
-
-      // create a new mesh with sphere geometry -
-      // we will cover the sphereMaterial next!
       var sphere = new THREE.Mesh(
         new THREE.SphereGeometry(radius,
                                  segments,
                                  rings),
-
         sphereMaterial);
 
       // add the sphere to the scene
