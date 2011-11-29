@@ -40,8 +40,6 @@ var triceratops = function() {
     $('#chat').show();
   }
 
-
-
   var sendVoice = function() {
     send($('#code').val()); 
     $('#code').val('');
@@ -97,14 +95,16 @@ var triceratops = function() {
   }();
 
   var setupCodeMirror = function() {
-    editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-      mode: "javascript",
-      lineNumbers: true,
-      onCursorActivity: function() {
-        editor.setLineClass(hlLine, null);
-        hlLine = editor.setLineClass(editor.getCursor().line, "activeline");
-      }
-    });
+    var editor = CodeMirror.fromTextArea( document.getElementById("code"), 
+    {
+        value: "geometry = new THREE.CubeGeometry( 200, 200, 200 );\n",
+        mode: "javascript",
+        lineNumbers: true,
+      
+        onCursorActivity: function() {
+        
+        }
+    } );
     hlLine = editor.setLineClass(0, "activeline");
   };
 
