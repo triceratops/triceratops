@@ -23,11 +23,25 @@
   [message]
   (parse-string message true))
 
+(defrecord Coder [nick color cursor history])
+
 (defn coder-connect
   "Registers the coder with the system based on the given request."
-  [request]
-  (println (str (request :message) " connected"))
-  (encode {:op :connect :nick (request :message)}))
+  [ch request]
+  (let [coder (Coder. (request :message) "#1155cc" {:line 0 :ch 0} [])]
+    (dosync
+     (alter coders merge {(keyword (:nick coder)) coder}))
+    (println (str (:nick coder) " connected"))
+    (enqueue ch (encode {:op :coders :coders @coders}))
+    (encode {:op :connect :nick (:nick coder)})))
+
+(defn coder-disconnect
+  "Removes the given coder from the map and notifies all clients."
+  [ch raw request]
+  (dosync
+   (alter coders dissoc (keyword (request :nick))))
+  (enqueue ch (encode {:op :quit}))
+  raw)
 
 (defn respond
   "Responds to the incoming raw message in various ways based on the value of :op,
@@ -35,11 +49,9 @@
   [ch raw]
   (let [request (decode raw)]
     (condp = (keyword (request :op))
-      :identify (coder-connect request)
+      :identify (coder-connect ch request)
       :say raw
-      :disconnect (let [close-message (encode {:op :quit})]
-                    (enqueue ch close-message)
-                    raw)
+      :disconnect (coder-disconnect ch raw request)
       :quit (do (close ch) ""))))
 
 (defn process
@@ -95,8 +107,9 @@
   [params]
   (layout
    (str "TRICERATOPS --- " (params :workspace))
-   [:body {:onload (str "triceratops.hatch('" (params :workspace) "')")
-           :onbeforeunload "triceratops.die()"}
+   [:body
+    {:onload (str "triceratops.hatch('" (params :workspace) "')")
+     :onbeforeunload "triceratops.die()"}
     [:div#pre
      [:label "what is your name?"]
      [:input#name {:type "text"}]]

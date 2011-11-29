@@ -31,17 +31,26 @@ var triceratops = function() {
 
   var coder = function(base) {
     return {
-      nick: base.nick
+      nick: base.nick,
+      color: "#bb3377"
     };
+  };
+
+  var updateCodersList = function(codersMaster) {
+    var codersList = _.map(_.keys(codersMaster), function(nick) {return '<li style="color: '+codersMaster[nick].color+'">'+nick+'</li>'}).join('');
+    $('#coders ul').html(codersList);
   };
 
   var addCoder = function(base) {
     coders[base.nick] = coder(base);
-    var codersList = _.map(_.keys(coders), function(nick) {return '<li>'+nick+'</li>'}).join('');
-    $('#coders ul').html(codersList);
+    updateCodersList(coders);
   };
 
   var commands = {
+    coders: function(message) {
+      coders = message.coders;
+      updateCodersList(coders);
+    },
     connect: function(message) {
       addCoder(message); 
     },
@@ -49,6 +58,8 @@ var triceratops = function() {
       $('#out').append('<div class="chat"><span class="nick">'+message.nick+': </span><span class="statement">'+message.message+"</span></div>");
     },
     disconnect: function(message) {
+      delete coders[message.nick];
+      updateCodersList(coders);
       $('#out').append(message.nick+" left<br/>");
     }
   }
@@ -153,14 +164,22 @@ var triceratops = function() {
     };
   }();
 
+  var cursorActivity = function() {
+    editor.setLineClass(hline, null);
+    hline = editor.setLineClass(editor.getCursor().line, "activeline");
+    console.log('cursor: '+editor.getCursor());
+  }
+
+  var codeChange = function(editor, info) {
+    console.log('change: '+info);
+  }
+
   var setupCodeMirror = function() {
     editor = CodeMirror.fromTextArea(document.getElementById("code"), {
       mode: "javascript",
       lineNumbers: true,
-      onCursorActivity: function() {
-        editor.setLineClass(hline, null);
-        hline = editor.setLineClass(editor.getCursor().line, "activeline");
-      }
+      onCursorActivity: cursorActivity, 
+      onChange: codeChange
     });
     hline = editor.setLineClass(0, "activeline");
   };
@@ -205,6 +224,7 @@ var triceratops = function() {
     die: die,
     home: home,
     gl: gl,
-    coders: coders
+    coders: coders,
+    editor: function() {return editor}
   };
 }();
