@@ -1,14 +1,30 @@
 (ns triceratops.core
-  (:use [lamina.core :only (channel receive siphon map*)])
-  (:use [aleph.http :only (start-http-server)]))
+  (:use [clojure.string :only (split join trim)]
+        [lamina.core :only (channel permanent-channel enqueue receive siphon map* close)]
+        [aleph.http :only (start-http-server)]))
 
-(def broadcast (channel))
+(def broadcast (permanent-channel))
 (def coders (ref {}))
+
+(defn process [name ch]
+  (fn [message]
+    (let [parts (split (trim message) #" +")]
+      (println message)
+      (condp = (first parts)
+        ":say" (join " " (concat [(first parts) name] (rest parts)))
+        ":leave" (do
+                   (enqueue ch ":close")
+                   (str message " " name))
+        ":close" (do (close ch) "")))))
 
 (defn coder [ch handshake]
   (receive ch
     (fn [name]
-      (siphon (map* #(str name ": " %) ch) broadcast)
+      (println (str name " joined"))
+      (enqueue broadcast (str ":join " name))
+      (siphon
+       (map* (process name ch) ch)
+       broadcast)
       (siphon broadcast ch))))
 
 (defn start []
@@ -16,3 +32,4 @@
 
 (defn -main []
   (start))
+

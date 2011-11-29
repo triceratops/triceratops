@@ -15,21 +15,31 @@
 </style>
 </head> 
  
-<body onload="triceratops.hatch()" onunload="triceratops.die()">
+<body onload="triceratops.hatch()" onbeforeunload="triceratops.die()">
  
 <div id="pre">
   <label>what is your name?</label>
-  <input type="text" value="" id="name">
+  <input id="name" type="text" />
 </div>
 
-<form>
-  <textarea id="code" name="code">
-    
-  </textarea>
-</form>
+<div id="workspace">
+  <div id="chat">
+    <input id="voice" type="text" />
+    <div id="out"></div>
+  </div>
 
-<div id="out">
-  
+  <form>
+    <textarea id="code" name="code">
+      geometry = new THREE.CubeGeometry( 200, 200, 200 );
+      material = new THREE.MeshBasicMaterial( { color: 0xff0000, wireframe: true } );
+
+      mesh = new THREE.Mesh( geometry, material );
+      scene.add( mesh );
+    </textarea>
+  </form>
+
+  <div id="gl">
+  </div>
 </div>
 </body>
 </html>
