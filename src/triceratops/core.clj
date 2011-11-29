@@ -19,30 +19,30 @@
   (parse-string message true))
 
 (defn coder-connect
-  "nick: the given nickname of the new coder
+  "request: a map with information about the coder
   Register the coder with the system."
-  [nick]
-  (println (str nick " connected"))
-  (enqueue broadcast (encode {:op :connect :nick nick})))
+  [request]
+  (println (str (request :message) " connected"))
+  (enqueue broadcast (encode {:op :connect :nick (request :message)})))
 
 (defn respond
-  [nick ch raw]
+  [ch raw]
   (let [request (decode raw)]
   (condp = (keyword (request :op))
+    :identify (do (coder-connect request) raw)
     :say raw
-    :leave (let [close-message (encode {:op :quit})]
-             (enqueue ch close-message)
-             raw)
+    :disconnect (let [close-message (encode {:op :quit})]
+                  (enqueue ch close-message)
+                  raw)
     :quit (do (close ch) ""))))
 
 (defn process
-  "nick: where this message originated from
-  ch: the channel of the incoming message
+  "ch: the channel of the incoming message
   This function produces a function which responds to messages,
   given a nick and incoming channel."
-  [nick ch]
+  [ch]
   (fn [raw]
-    (let [response (respond nick ch raw)]
+    (let [response (respond ch raw)]
       (println response)
       response)))
 
@@ -52,13 +52,10 @@
   Register the new coder and establish the channel it will use to broadcast
   to other coders "
   [ch handshake]
-  (receive ch
-    (fn [nick]
-      (coder-connect nick)
-      (siphon
-       (map* (process nick ch) ch)
-       broadcast)
-      (siphon broadcast ch))))
+  (siphon
+   (map* (process ch) ch)
+   broadcast)
+  (siphon broadcast ch))
 
 (defn start []
   (start-http-server coder {:port 11122 :websocket true}))

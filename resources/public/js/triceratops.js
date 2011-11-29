@@ -185,7 +185,7 @@ var triceratops = function() {
   };
 
   var die = function() {
-    send({nick: self.nick, op: 'quit'});
+    send({nick: self.nick, op: 'disconnect'});
     closeWebSocket();
   };
 
