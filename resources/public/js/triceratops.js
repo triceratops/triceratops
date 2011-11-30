@@ -94,21 +94,25 @@ var triceratops = function() {
   var identify = function() {
     var nick = $('#name').val();
     self = coder({nick: nick});
-    send({op: 'identify', message: nick});
-    $('title').html(nick);
+    send({
+      workspace: workspace, 
+      op: 'identify', 
+      message: nick
+    });
+
     $('#pre').hide();
     $('#workspace').show();
   };
 
   var say = function() {
-    var speak = $('#voice').val();
-    var voice = {
+    var voice = $('#voice').val();
+    send({
+      workspace: workspace,
       nick: self.nick,
       op: 'say',
-      message: speak
-    };
+      message: voice
+    });
 
-    send(voice);
     $('#voice').val('');
   };
 
@@ -192,6 +196,7 @@ var triceratops = function() {
     self.cursor = editor.getCursor();
     self.selection = editor.getSelection();
     send({
+      workspace: workspace,
       nick: self.nick, 
       op: 'cursor', 
       cursor: self.cursor, 
@@ -210,6 +215,7 @@ var triceratops = function() {
     self.selection = editor.getSelection();
     if (compareCursors(self.cursor, info.from)) {
       send({
+        workspace: workspace,
         nick: self.nick, 
         op: 'code', 
         info: info
@@ -227,7 +233,9 @@ var triceratops = function() {
     hline = editor.setLineClass(0, "activeline");
   };
 
-  var hatch = function(workspace) {
+  var hatch = function(space) {
+    workspace = space;
+
     setupCodeMirror();
     openWebSocket();
 
@@ -249,7 +257,12 @@ var triceratops = function() {
   };
 
   var die = function() {
-    send({nick: self.nick, op: 'disconnect'});
+    send({
+      workspace: workspace, 
+      nick: self.nick, 
+      op: 'disconnect'
+    });
+
     closeWebSocket();
   };
 
