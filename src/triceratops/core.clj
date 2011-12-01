@@ -23,6 +23,7 @@
   [message]
   (parse-string message true))
 
+(defrecord Workspace [name coders code])
 (defrecord Coder [nick color cursor history])
 
 (defn coder-connect
@@ -33,6 +34,16 @@
      (alter coders merge {(keyword (:nick coder)) coder}))
     (enqueue ch (encode {:op :coders :coders @coders}))
     (encode {:op :connect :nick (:nick coder)})))
+
+(defn coder-join
+  "Joins the coder to the given workspace"
+  [ch request]
+  )
+
+(defn coder-leave
+  "Removes the given coder from the workspace"
+  [ch request]
+  )
 
 (defn coder-disconnect
   "Removes the given coder from the map and notifies all clients."
@@ -59,6 +70,8 @@
   (let [request (decode raw)]
     (condp = (keyword (request :op))
       :identify (coder-connect ch request)
+      :join (coder-join ch request)
+      :leave (coder-leave ch request)
       :say raw
       :cursor (coder-cursor ch raw request)
       :code (coder-change ch raw request)
