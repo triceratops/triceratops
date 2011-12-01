@@ -2,6 +2,7 @@ var triceratops = function() {
   var socket, self, editor, hline, workspace;
   var coders = {};
 
+  // WEBSOCKETS
   var openWebSocket = function() {
     if (window.MozWebSocket) {
       window.WebSocket = window.MozWebSocket;
@@ -29,6 +30,7 @@ var triceratops = function() {
     }
   };
 
+  // CODERS
   var coder = function(base) {
     return {
       nick: base.nick,
@@ -91,29 +93,24 @@ var triceratops = function() {
     commands[message.op](message);
   };
 
-  var identify = function() {
-    var nick = $('#name').val();
+  var identify = function(nick) {
     self = coder({nick: nick});
     send({
-      workspace: workspace, 
       op: 'identify', 
       message: nick
     });
 
-    $('#pre').hide();
-    $('#workspace').show();
+    $('#nick').hide();
+    $('#funnel').show();
   };
 
-  var say = function() {
-    var voice = $('#voice').val();
+  var say = function(voice) {
     send({
       workspace: workspace,
       nick: self.nick,
       op: 'say',
       message: voice
     });
-
-    $('#voice').val('');
   };
 
   var gl = function() {
@@ -224,7 +221,7 @@ var triceratops = function() {
   }
 
   var setupCodeMirror = function() {
-    editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+    editor = CodeMirror.fromTextArea(document.getElementById('code'), {
       mode: "javascript",
       lineNumbers: true,
       onCursorActivity: cursorActivity, 
@@ -233,32 +230,14 @@ var triceratops = function() {
     hline = editor.setLineClass(0, "activeline");
   };
 
-  var hatch = function(space) {
-    workspace = space;
-
-    setupCodeMirror();
+  var hatch = function() {
+    window.onstatechange = function() {routing.act()};
     openWebSocket();
-
-    $('#workspace').hide();
-    $('#name').keypress(function(e) {
-      if (e.which === 13) {
-        identify();
-      }
-    });
-
-    $('#voice').keypress(function(e) {
-      if (e.which === 13) {
-        say();
-      }
-    });
-
-    gl.init();
-    gl.animate();
+    routing.act();
   };
 
   var die = function() {
     send({
-      workspace: workspace, 
       nick: self.nick, 
       op: 'disconnect'
     });
@@ -266,13 +245,53 @@ var triceratops = function() {
     closeWebSocket();
   };
 
-  var home = function() {
-    $('#funnel').keypress(function(e) {
+  var watchInput = function(selector, callback) {
+    $(selector).keypress(function(e) {
       if (e.which === 13) {
-        window.location = "/w/"+$('#funnel').val();
+        var val = $(selector).val();
+        callback(val);
+        $(selector).val('');
+      }
+    });
+  }
+
+  var home = function() {
+    $.ajax({
+      url: '/a/home',
+      success: function(body) {
+        $('#triceratops').html(body);
+
+        watchInput('#nick input', identify);
+        watchInput('#funnel input', function(val) {
+          workspace = val;
+          routing.go('/w/'+val);
+        });
+
+        $('#funnel').hide();
       }
     });
   };
+
+  var workspace = function() {
+    if (!self) {
+      routing.go('/');
+    } else {
+      $.ajax({
+        url: '/a/workspace',
+        success: function(body) {
+          $('#triceratops').html(body);
+
+          watchInput('#voice input', say);
+          gl.init();
+          gl.animate();
+          setupCodeMirror();
+        }
+      });
+    }
+  }
+
+  routing.add('/', 'home', home);
+  routing.add('/w/:workspace', 'workspace', workspace);
 
   return {
     send: send,
@@ -281,6 +300,8 @@ var triceratops = function() {
     home: home,
     gl: gl,
     coders: coders,
+
+    self: function() {return self},
     editor: function() {return editor}
   };
 }();

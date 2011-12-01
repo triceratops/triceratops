@@ -86,12 +86,12 @@
   [handler port]
   (start-http-server handler {:port port :websocket true}))
 
-(defn layout
-  [title block]
+(defn gateway
+  [params]
   (html
    [:html
     [:head
-     [:title title]
+     [:title (or (params :workspace) "TRICERATOPS")]
      [:script {:src "/js/json2.js"}]
      [:script {:src "/js/underscore.js"}]
      [:script {:src "/js/jquery.js"}]
@@ -100,41 +100,48 @@
      [:script {:src "/js/codemirror/mode/javascript/javascript.js"}]
      [:link {:rel "stylesheet" :href "/js/codemirror/theme/default.css"}]
      [:script {:src "/js/Three.js"}]
+     [:script {:src "/js/amplify.store.js"}]
+     [:script {:src "/js/history.adapter.jquery.js"}]
+     [:script {:src "/js/history.js"}]
+     [:script {:src "/js/sherpa.js"}]
+     [:script {:src "/js/routing.js"}]
      [:script {:src "/js/triceratops.js"}]
-     [:link {:rel "stylesheet" :href "/css/triceratops.css"}]
-    block]]))
+     [:link {:rel "stylesheet" :href "/css/triceratops.css"}]]
+    [:body 
+     {:onload "triceratops.hatch()"
+      :onbeforeunload "triceratops.die()"}
+     [:div#triceratops]]]))
 
 (defn home
   [params]
-  (layout
-   "TRICERATOPS"
-   [:body {:onload "triceratops.home()"}
-    [:div
-     [:p "WELCOME TO TRICERATOPS"]
+  (html
+   [:div#home
+    [:p "WELCOME TO TRICERATOPS"]
+    [:div#nick
+     [:label "what is your name?"]
+     [:input {:type "text"}]]
+    [:div#funnel
      [:label "funnel to workspace"]
-     [:input#funnel {:type "text"}]]]))
+     [:input {:type "text"}]]]))
 
 (defn workspace
   [params]
-  (layout
-   (str "TRICERATOPS --- " (params :workspace))
-   [:body
-    {:onload (str "triceratops.hatch('" (params :workspace) "')")
-     :onbeforeunload "triceratops.die()"}
-    [:div#pre
-     [:label "what is your name?"]
-     [:input#name {:type "text"}]]
-    [:div#workspace
-     [:div#chat
-      [:input#voice {:type "text"}]
-      [:div#out]]
-     [:div#coders
-      [:p "other coders"]
-      [:ul]]
-     [:form
-      [:textarea#code {:name "code"}
-       "var yellow = {wowowowow: 'hwhwhwhwhwhwhwhw'}"]]
-     [:div#gl]]]))
+  (html
+   [:div#workspace
+    [:div#voice
+     [:input {:type "text"}]
+     [:div#out]]
+    [:div#coders
+     [:p "other coders"]
+     [:ul]]
+    [:form
+     [:textarea#code {:name "code"}
+      "var yellow = {wowowowow: 'hwhwhwhwhwhwhwhw'}"]]
+    [:div#gl]]))
+
+(def paths
+  {:home home
+   :workspace workspace})
 
 (defn nothing
   []
@@ -142,8 +149,9 @@
 
 (defroutes triceratops-routes
   (route/files "/" {:root "resources/public"})
-  (GET "/" {params :params} (home params))
-  (GET "/w/:workspace" {params :params} (workspace params))
+  (GET "/" {params :params} (gateway params))
+  (GET "/w/:workspace" {params :params} (gateway params))
+  (GET "/a/:path" {params :params} ((paths (keyword (params :path))) params))
   (route/not-found (nothing)))
 
 (def app (handler/site triceratops-routes))
