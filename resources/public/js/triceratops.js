@@ -57,7 +57,11 @@ var triceratops = function() {
     }
   }
 
-  var addCoder = function(base) {
+  var coderConnect = function(base) {
+    coders.update(base.coder.nick, coder(base.coder));
+  };
+
+  var coderJoin = function(base) {
     coders.update(base.nick, coder(base));
   };
 
@@ -68,7 +72,10 @@ var triceratops = function() {
       coders(message.coders);
     },
     connect: function(message) {
-      addCoder(message); 
+      coderConnect(message); 
+    },
+    join: function(message) {
+      coderJoin(message); 
     },
     say: function(message) {
       $('#out').append('<div class="chat"><span class="nick">'+message.nick+': </span><span class="statement">'+message.message+"</span></div>");
@@ -86,6 +93,7 @@ var triceratops = function() {
   }
 
   var receive = function(raw) {
+    console.log(raw);
     var message = JSON.parse(raw);
     commands[message.op](message);
   };
@@ -266,7 +274,6 @@ var triceratops = function() {
       };
 
       workspace.update('name', params.workspace);
-      console.log(params);
       return {
         name: params.workspace,
         url: '/a/workspace',
@@ -326,8 +333,8 @@ var triceratops = function() {
     return function(params) {
       var destination = purpose(params);
       var consummate = function() {
-        if (workspace().name) {
-          workspace().depart(params);
+        if (workspace().depart) {
+          workspace().depart();
         } 
         arrive(destination);
       }

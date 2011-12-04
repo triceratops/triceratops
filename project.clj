@@ -2,6 +2,7 @@
   :description "collaborative realtime livecoding in the browser"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/algo.generic "0.1.1-SNAPSHOT"]
+                 ;;[aleph "0.2.1-SNAPSHOT"]
                  [org.clojars.smallrivers/aleph "0.2.1-SNAPSHOT"]
                  [ring/ring-jetty-adapter "0.3.10"]
                  [compojure "0.6.4"]
@@ -13,4 +14,6 @@
   :jvm-opts ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"]
   :main triceratops.core
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"})
+;;                 "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"}
+                 }
+  )

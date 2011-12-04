@@ -3,8 +3,11 @@
         [cheshire.core :only (generate-string parse-string)]
         [compojure.core :only (defroutes GET)]
         [hiccup.core :only (html)]
-        [lamina.core :only
-         (permanent-channel enqueue receive receive-all siphon map* close fork)]
+        [lamina.core
+         :only
+         (permanent-channel
+          enqueue receive receive-all
+          filter* siphon map* close fork)]
         [aleph.http :only (start-http-server)])
   (:require [ring.adapter.jetty :as ring]
             [compojure.route :as route]
@@ -27,18 +30,6 @@
 (defrecord Workspace [ch name coders code history tags])
 (defrecord Coder [ch nick color cursor history])
 
-;; (def respond)
-;; (defn process
-;;   "Produces a function which responds to incoming messages,
-;;   sometimes sending messages back along this same channel."
-;;   [ch]
-;;   (fn [raw]
-;;     (let [response (respond ch raw)]
-;;       (println response)
-;;       response)))
-
-(def workspace-process)
-
 (defn clean-coder
   [coder]
   (select-keys coder [:nick :color :cursor]))
@@ -56,28 +47,32 @@
     (dosync
      (alter coders merge {(keyword (:nick coder)) coder}))
     (enqueue ch (encode {:op :status :coders out-coders :workspaces out-workspaces}))
-    (enqueue broadcast (encode {:op :connect :nick (-> coder :nick)}))))
+    (encode {:op :connect :coder (clean-coder coder)})))
+
+(def respond-to)
+(def workspace-commands)
 
 (defn coder-join
   "Joins the coder to the given workspace"
   [ch request]
   (let [name (keyword (request :workspace))
         nick (keyword (request :nick))
-        workspace (or (-> workspaces name)
+        workspace (or (-> @workspaces name)
                       (Workspace. (permanent-channel) name [] "" [] {}))
         added (assoc workspace :coders (conj (-> workspace :coders) nick))
         coder-ch (fork (-> @coders nick :ch))
-        workspace-ch (-> workspace :ch)]
-    (enqueue workspace-ch (encode {:op :join :coder (clean-coder (@coders nick))}))
-    ;; (receive-all coder-ch (workspace-process coder-ch workspace-ch))
-    (siphon (map* (workspace-process coder-ch workspace-ch) coder-ch) workspace-ch)
-    (siphon workspace-ch coder-ch)
+        workspace-ch (fork (-> workspace :ch))
+        process (map* (respond-to workspace-commands [coder-ch workspace-ch]) coder-ch)]
+    (siphon (filter* identity process) (-> workspace :ch))
+    (siphon workspace-ch (-> @coders nick :ch))
     (dosync
-     (alter workspaces assoc name added))))
+     (alter workspaces assoc name added))
+    (encode {:op :join
+             :coder (clean-coder (@coders nick))
+             :workspace (clean-workspace workspace)})))
 
 (defn coder-say
   [coder-ch workspace-ch request]
-  ;; (enqueue workspace-ch (encode request)))
   (encode request))
 
 (defn coder-cursor
@@ -95,10 +90,10 @@
   [coder-ch workspace-ch request]
   (let [name (keyword (request :workspace))
         nick (keyword (request :nick))
-        workspace (-> workspaces name)
+        workspace (-> @workspaces name)
         removed (assoc workspace :coders (dissoc (-> workspace :coders) nick))]
     (close coder-ch)
-    ;; (enqueue workspace-ch (encode {:op :leave :nick nick}))))
+    (close workspace-ch)
     (encode {:op :leave :nick nick})))
 
 (defn coder-disconnect
@@ -106,53 +101,34 @@
   [ch request]
   (dosync
    (alter coders dissoc (keyword (request :nick))))
-  (enqueue broadcast (encode request))
-  (close ch))
+  (close ch)
+  (encode request))
 
-;; (defn respond
-;;   "Responds to the incoming raw message in various ways based on the value of :op,
-;;   potentially adding messages back into ch."
-;;   [ch raw]
-;;   (let [request (decode raw)]
-;;     (condp = (keyword (request :op))
-;;       :identify (coder-connect ch request)
-;;       :join (coder-join ch request)
-;;       :leave (coder-leave ch request)
-;;       :say raw
-;;       :cursor (coder-cursor ch raw request)
-;;       :code (coder-change ch raw request)
-;;       :disconnect (coder-disconnect ch raw request)
-;;       :quit (do (close ch) ""))))
-
-(defn base-process
-  [ch]
+(defn respond-to
+  [commands channels]
   (fn [raw]
     (println raw)
-    (let [request (decode raw)]
-      (condp = (keyword (request :op))
-        :identify (coder-connect ch request)
-        :join (coder-join ch request)
-        :disconnect (coder-disconnect ch request)
-        nil))))
+    (let [request (decode raw)
+          command (commands (keyword (request :op)))]
+      (if command
+        (apply command (conj channels request))))))
 
-(defn workspace-process
-  [coder-ch workspace-ch]
-  (fn [raw]
-    (println raw)
-    (let [request (decode raw)]
-      (condp = (keyword (request :op))
-        :say (coder-say coder-ch workspace-ch request)
-        :cursor (coder-cursor coder-ch workspace-ch request)
-        :code (coder-change coder-ch workspace-ch request)
-        :leave (coder-leave coder-ch workspace-ch request)
-        nil))))
-        
+(def base-commands
+  {:identify coder-connect
+   :join coder-join
+   :disconnect coder-disconnect})
+
+(def workspace-commands
+  {:say coder-say
+   :cursor coder-cursor
+   :code coder-change
+   :leave coder-leave})
+
 (defn triceratops
   "Registers the new coder with the system and establishes
   the channel it will use to broadcast to other coders."
   [ch handshake]
-  (receive-all ch (base-process ch))
-  ;; (siphon (map* (base-process ch) ch) broadcast)
+  (siphon (filter* identity (map* (respond-to base-commands [ch]) ch)) broadcast)
   (siphon broadcast ch))
 
 (defn start-websockets
