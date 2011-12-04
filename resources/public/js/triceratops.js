@@ -1,6 +1,9 @@
 var triceratops = function() {
-  var socket, self, editor, hline, workspace;
-  var coders = {};
+  var socket, self, editor, hline;
+  var self = linkage.link({});
+  var workspace = linkage.link({});
+  var workspaces = linkage.link({});
+  var coders = linkage.link({});
 
   // WEBSOCKETS
   var openWebSocket = function() {
@@ -38,14 +41,9 @@ var triceratops = function() {
     };
   };
 
-  var updateCodersList = function(codersMaster) {
-    var codersList = _.map(_.keys(codersMaster), function(nick) {return '<li style="color: '+codersMaster[nick].color+'">'+nick+'</li>'}).join('');
-    $('#coders ul').html(codersList);
-  };
-
   var updateCursor = function(nick, cursor) {
     var next = {line: cursor.line, ch: cursor.ch+1};
-    var other = coders[nick];
+    var other = coders()[nick];
 
     if (other.box) other.box.clear();
     other.cursor = cursor;
@@ -54,20 +52,20 @@ var triceratops = function() {
 
   var updateCode = function(message) {
     console.log(message);
-    if (message.nick !== self.nick) {
+    if (message.nick !== self().nick) {
       editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
     }
   }
 
   var addCoder = function(base) {
-    coders[base.nick] = coder(base);
-    updateCodersList(coders);
+    coders.update(base.nick, coder(base));
   };
 
   var commands = {
-    coders: function(message) {
-      coders = message.coders;
-      updateCodersList(coders);
+    status: function(message) {
+      // self(message.self);
+      workspaces(message.workspaces);
+      coders(message.coders);
     },
     connect: function(message) {
       addCoder(message); 
@@ -82,8 +80,7 @@ var triceratops = function() {
       updateCode(message);
     },
     disconnect: function(message) {
-      delete coders[message.nick];
-      updateCodersList(coders);
+      coders.del(message.nick);
       $('#out').append(message.nick+" left<br/>");
     }
   }
@@ -93,21 +90,10 @@ var triceratops = function() {
     commands[message.op](message);
   };
 
-  var identify = function(nick) {
-    self = coder({nick: nick});
-    send({
-      op: 'identify', 
-      message: nick
-    });
-
-    $('#nick').hide();
-    $('#funnel').show();
-  };
-
   var say = function(voice) {
     send({
-      workspace: workspace,
-      nick: self.nick,
+      workspace: workspace().name,
+      nick: self().nick,
       op: 'say',
       message: voice
     });
@@ -188,16 +174,17 @@ var triceratops = function() {
   }();
 
   var cursorActivity = function() {
+    var my = self();
     editor.setLineClass(hline, null);
     hline = editor.setLineClass(editor.getCursor().line, "activeline");
-    self.cursor = editor.getCursor();
-    self.selection = editor.getSelection();
+    my.cursor = editor.getCursor();
+    my.selection = editor.getSelection();
     send({
-      workspace: workspace,
-      nick: self.nick, 
+      workspace: workspace().name,
+      nick: my.nick, 
       op: 'cursor', 
-      cursor: self.cursor, 
-      selection: self.selection
+      cursor: my.cursor, 
+      selection: my.selection
     });
   }
 
@@ -207,13 +194,14 @@ var triceratops = function() {
   }
 
   var codeChange = function(editor, info) {
+    var my = self();
     console.log(info);
-    self.cursor = editor.getCursor();
-    self.selection = editor.getSelection();
-    if (compareCursors(self.cursor, info.from)) {
+    my.cursor = editor.getCursor();
+    my.selection = editor.getSelection();
+    if (compareCursors(my.cursor, info.from)) {
       send({
-        workspace: workspace,
-        nick: self.nick, 
+        workspace: workspace().name,
+        nick: my.nick, 
         op: 'code', 
         info: info
       });
@@ -238,7 +226,7 @@ var triceratops = function() {
 
   var die = function() {
     send({
-      nick: self.nick, 
+      nick: self().nick, 
       op: 'disconnect'
     });
 
@@ -255,53 +243,115 @@ var triceratops = function() {
     });
   }
 
-  var home = function() {
-    $.ajax({
-      url: '/a/home',
-      success: function(body) {
-        $('#triceratops').html(body);
-
-        watchInput('#nick input', identify);
-        watchInput('#funnel input', function(val) {
-          workspace = val;
-          routing.go('/w/'+val);
-        });
-
-        $('#funnel').hide();
+  var actions = {
+    home: function(params) {
+      return {
+        name: '!home',
+        url: '/a/home',
+        arrive: function() {
+          watchInput('#funnel input', function(val) {
+            routing.go('/w/'+val);
+          });
+        },
+        depart: function() {
+          
+        }
       }
-    });
-  };
+    },
 
-  var workspace = function() {
-    if (!self) {
-      routing.go('/');
-    } else {
-      $.ajax({
+    workspace: function(params) {
+      var updateCoders = function(codersMaster) {
+        var codersList = _.map(_.keys(codersMaster), function(nick) {return '<li style="color: '+codersMaster[nick].color+'">'+nick+'</li>'}).join('');
+        $('#coders ul').html(codersList);
+      };
+
+      workspace.update('name', params.workspace);
+      console.log(params);
+      return {
+        name: params.workspace,
         url: '/a/workspace',
-        success: function(body) {
-          $('#triceratops').html(body);
-
+        arrive: function() {
           watchInput('#voice input', say);
           gl.init();
           gl.animate();
           setupCodeMirror();
+          coders.watch(updateCoders);
+          send({
+            op: 'join',
+            workspace: params.workspace,
+            nick: self().nick
+          });
+        },
+
+        depart: function() {
+          coders.unwatch(updateCoders);
         }
+      }
+    }
+  };
+
+  var chooseNick = function(after) {
+    return function(nick) {
+      self(coder({nick: nick}));
+      console.log(self().nick);
+      send({
+        op: 'identify', 
+        message: nick
       });
+
+      $('#identify').hide();
+      $('#triceratops').show();
+      after();
+    }
+  };
+
+  var identify = function(after) {
+    $('#triceratops').hide();
+    $('#identify').show();
+    watchInput('#nick input', chooseNick(after));
+  }
+
+  var arrive = function(destination) {
+    workspace(destination);
+    $.ajax({
+      url: destination.url,
+      success: function(body) {
+        $('#triceratops').html(body);
+        destination.arrive();
+      }
+    });
+  }
+
+  var action = function(purpose) {
+    return function(params) {
+      var destination = purpose(params);
+      var consummate = function() {
+        if (workspace().name) {
+          workspace().depart(params);
+        } 
+        arrive(destination);
+      }
+
+      if (!self().nick) {
+        identify(consummate);
+      } else {
+        consummate();
+      }
     }
   }
 
-  routing.add('/', 'home', home);
-  routing.add('/w/:workspace', 'workspace', workspace);
+  routing.add('/', 'home', action(actions.home));
+  routing.add('/w/:workspace', 'workspace', action(actions.workspace));
 
   return {
     send: send,
     hatch: hatch,
     die: die,
-    home: home,
+    actions: actions,
     gl: gl,
-    coders: coders,
 
-    self: function() {return self},
+    coders: coders,
+    self: self,
     editor: function() {return editor}
   };
 }();
