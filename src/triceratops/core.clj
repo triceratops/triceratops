@@ -27,8 +27,9 @@
   [message]
   (parse-string message true))
 
-(defrecord Workspace [ch name coders code history tags])
-(defrecord Coder [ch nick color cursor history])
+(defrecord Workspace [ch name code cursors history tags])
+(defrecord Coder [ch nick color cursors])
+(defrecord Cursor [workspace coder pos color])
 
 (defn clean-coder
   [coder]
@@ -41,7 +42,9 @@
 (defn coder-connect
   "Registers the coder with the system based on the given request."
   [ch request]
-  (let [coder (Coder. ch (request :message) (request :color) {:line 0 :ch 0} [])
+  (let [nick (keyword (request :nick))
+        color (keyword (request :color))
+        coder (Coder. ch nick color {})
         out-coders (map clean-coder (vals @coders))
         out-workspaces (map clean-workspace (vals @workspaces))]
     (dosync
@@ -52,21 +55,29 @@
 (def respond-to)
 (def workspace-commands)
 
+(defn add-coder-to-workspace
+  [workspace coder cursor]
+  (dosync
+   (alter workspaces assoc-in [(:name workspace) :cursors (:nick coder)] cursor)
+   (alter coders assoc-in [(:nick coder) :cursors (:name workspace)] cursor)))
+
 (defn coder-join
   "Joins the coder to the given workspace"
   [ch request]
   (let [name (keyword (request :workspace))
         nick (keyword (request :nick))
+        coder (-> @coders nick)
+        pos {:line 0 :ch 0}
+        color (-> @coders nick :color)
+        cursor (ref (Cursor. name nick pos color))
         workspace (or (-> @workspaces name)
-                      (Workspace. (permanent-channel) name [] "" [] {}))
-        added (assoc workspace :coders (conj (-> workspace :coders) nick))
+                      (Workspace. (permanent-channel) name "" {} [] {}))
         coder-ch (fork (-> @coders nick :ch))
         workspace-ch (fork (-> workspace :ch))
         process (map* (respond-to workspace-commands [coder-ch workspace-ch]) coder-ch)]
     (siphon (filter* identity process) (-> workspace :ch))
     (siphon workspace-ch (-> @coders nick :ch))
-    (dosync
-     (alter workspaces assoc name added))
+    (add-coder-to-workspace workspace coder cursor)
     (encode {:op :join
              :coder (clean-coder (@coders nick))
              :workspace (clean-workspace workspace)})))
@@ -77,9 +88,12 @@
 
 (defn coder-cursor
   [coder-ch workspace-ch request]
-  (dosync
-   (alter coders assoc-in [(keyword (request :nick)) :cursor] (request :cursor)))
-  (encode request))
+  (let [name (keyword (request :workspace))
+        nick (keyword (request :nick))
+        coder (-> @coders nick)]
+    (dosync
+     (alter (-> @coders nick :cursors name) #(request :cursor)))
+    (encode request)))
 
 (defn coder-change
   [coder-ch workspace-ch request]
@@ -96,9 +110,14 @@
     (close workspace-ch)
     (encode {:op :leave :nick nick})))
 
+(defn remove-coder-from-workspace
+  []
+
 (defn coder-disconnect
   "Removes the given coder from the map and notifies all clients."
   [ch request]
+  (let [nick (keyword (request :nick))]
+    (map #() (-> @coders nick :cursors))
   (dosync
    (alter coders dissoc (keyword (request :nick))))
   (close ch)
@@ -114,7 +133,7 @@
         (apply command (conj channels request))))))
 
 (def base-commands
-  {:identify coder-connect
+  {:connect coder-connect
    :join coder-join
    :disconnect coder-disconnect})
 

@@ -302,8 +302,9 @@ var triceratops = function() {
       self(coder({nick: nick}));
       console.log(self().nick);
       send({
-        op: 'identify', 
-        message: nick
+        op: 'connect', 
+        nick: nick,
+        color: self().color
       });
 
       $('#identify').hide();
