@@ -1,6 +1,7 @@
 (ns triceratops.core
   (:use triceratops.debug
         [clojure.string :only (split join trim)]
+        [clojure.walk :only (keywordize-keys)]
         [cheshire.core :only (generate-string parse-string)]
         [compojure.core :only (defroutes GET)]
         [hiccup.core :only (html)]
@@ -26,19 +27,25 @@
 (defn decode
   "Takes a string and interprets it into a structured map."
   [message]
-  (parse-string message true))
+  (keywordize-keys (parse-string message true)))
 
 (defrecord Workspace [ch name code cursors history tags])
 (defrecord Coder [ch nick color cursors])
 (defrecord Cursor [workspace coder pos color])
 
+(defn clean-cursors
+  [cursor-haver]
+  (update-in cursor-haver [:cursors] #(map deref (vals %))))
+
 (defn clean-coder
   [coder]
-  (select-keys coder [:nick :color :cursor]))
+  (clean-cursors
+   (select-keys coder [:nick :color :cursors])))
 
 (defn clean-workspace
   [workspace]
-  (select-keys workspace [:name :coders]))
+  (clean-cursors
+   (select-keys workspace [:name :code :cursors])))
 
 (defn coder-connect
   "Adheres the coder given by request to the channel ch."
@@ -82,15 +89,19 @@
         cursor (ref (Cursor. workspace-name nick pos color))
         workspace (or (workspace-name @workspaces)
                       (Workspace. (permanent-channel) workspace-name "" {} [] {}))
+
         coder-ch (fork (:ch coder))
         workspace-ch (fork (:ch workspace))
-        process (map* (respond-to workspace-commands [coder-ch workspace-ch]) coder-ch)]
-    (siphon (filter* identity process) (:ch workspace))
+
+        decoded (map* decode coder-ch)
+        filtered (filter* #(if (workspace-commands (keyword (:op %))) %) decoded)
+        process (map* (respond-to workspace-commands [coder-ch workspace-ch]) filtered)]
+    (siphon process (:ch workspace))
     (siphon workspace-ch (:ch coder))
     (add-coder-to-workspace workspace coder cursor)
     (encode {:op :join
-             :coder (clean-coder coder)
-             :workspace (clean-workspace workspace)})))
+             :coder (clean-coder (nick @coders))
+             :workspace (clean-workspace (workspace-name @workspaces))})))
 
 (defn coder-say
   [coder-ch workspace-ch request]
@@ -100,10 +111,11 @@
   [coder-ch workspace-ch request]
   (let [workspace-name (keyword (request :workspace))
         nick (keyword (request :nick))
-        coder (nick @coders)]
+        coder (nick @coders)
+        cursor (-> @coders nick :cursors workspace-name)]
     (dosync
-     (alter (-> @coders nick :cursors workspace-name) #(request :cursor)))
-    (encode request)))
+     (alter cursor assoc :pos (request :cursor)))
+    (encode (assoc request :cursor (:pos @cursor)))))
 
 (defn coder-change
   [coder-ch workspace-ch request]
@@ -126,17 +138,16 @@
   [ch request]
   (let [nick (keyword (request :nick))]
     (map #() (-> @coders nick :cursors))
-  (dosync
-   (alter coders dissoc (keyword (request :nick))))
-  (close ch)
-  (encode request)))
+    (dosync
+     (alter coders dissoc (keyword (request :nick))))
+    (close ch)
+    (encode request)))
 
 (defn respond-to
   [commands channels]
-  (fn [raw]
-    (println raw)
-    (let [request (decode raw)
-          command (commands (keyword (request :op)))]
+  (fn [request]
+    (debug request)
+    (let [command (commands (keyword (request :op)))]
       (if command
         (apply command (conj channels request))))))
 
@@ -155,8 +166,10 @@
   "Registers the new coder with the system and establishes
   the channel it will use to broadcast to other coders."
   [ch handshake]
-  (siphon (filter* identity (map* (respond-to base-commands [ch]) ch)) broadcast)
-  (siphon broadcast ch))
+  (let [decoded (map* decode ch)
+        filtered (filter* #(if (base-commands (keyword (:op %))) %) decoded)]
+    (siphon (map* (respond-to base-commands [ch]) filtered) broadcast)
+    (siphon broadcast ch)))
 
 (defn start-websockets
   "Starts the websocket server."
