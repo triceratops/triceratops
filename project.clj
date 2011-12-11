@@ -14,6 +14,6 @@
   :jvm-opts ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"]
   :main triceratops.core
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-;;                 "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"}
+                 ;; "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"}
                  }
   )

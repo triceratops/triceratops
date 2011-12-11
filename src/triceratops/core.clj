@@ -1,5 +1,6 @@
 (ns triceratops.core
-  (:use [clojure.string :only (split join trim)]
+  (:use triceratops.debug
+        [clojure.string :only (split join trim)]
         [cheshire.core :only (generate-string parse-string)]
         [compojure.core :only (defroutes GET)]
         [hiccup.core :only (html)]
@@ -40,7 +41,7 @@
   (select-keys workspace [:name :coders]))
 
 (defn coder-connect
-  "Registers the coder with the system based on the given request."
+  "Adheres the coder given by request to the channel ch."
   [ch request]
   (let [nick (keyword (request :nick))
         color (keyword (request :color))
@@ -58,28 +59,37 @@
 (defn add-coder-to-workspace
   [workspace coder cursor]
   (dosync
-   (alter workspaces assoc-in [(:name workspace) :cursors (:nick coder)] cursor)
+   (if ((:name workspace) @workspaces)
+     (alter workspaces assoc-in [(:name workspace) :cursors (:nick coder)] cursor)
+     (let [joined (assoc-in workspace [:cursors (:nick coder)] cursor)]
+       (alter workspaces assoc (:name workspace) joined)))
    (alter coders assoc-in [(:nick coder) :cursors (:name workspace)] cursor)))
 
+(defn remove-coder-from-workspace
+  [workspace coder]
+  (dosync
+   (alter workspaces update-in [(:name workspace) :cursors] #(dissoc % (:nick coder)))
+   (alter coders update-in [(:nick coder) :cursors] #(dissoc % (:name workspace)))))
+
 (defn coder-join
-  "Joins the coder to the given workspace"
+  "Joins the coder to the given workspace."
   [ch request]
-  (let [name (keyword (request :workspace))
+  (let [workspace-name (keyword (request :workspace))
         nick (keyword (request :nick))
         coder (-> @coders nick)
         pos {:line 0 :ch 0}
-        color (-> @coders nick :color)
-        cursor (ref (Cursor. name nick pos color))
-        workspace (or (-> @workspaces name)
-                      (Workspace. (permanent-channel) name "" {} [] {}))
-        coder-ch (fork (-> @coders nick :ch))
-        workspace-ch (fork (-> workspace :ch))
+        color (:color coder)
+        cursor (ref (Cursor. workspace-name nick pos color))
+        workspace (or (workspace-name @workspaces)
+                      (Workspace. (permanent-channel) workspace-name "" {} [] {}))
+        coder-ch (fork (:ch coder))
+        workspace-ch (fork (:ch workspace))
         process (map* (respond-to workspace-commands [coder-ch workspace-ch]) coder-ch)]
-    (siphon (filter* identity process) (-> workspace :ch))
-    (siphon workspace-ch (-> @coders nick :ch))
+    (siphon (filter* identity process) (:ch workspace))
+    (siphon workspace-ch (:ch coder))
     (add-coder-to-workspace workspace coder cursor)
     (encode {:op :join
-             :coder (clean-coder (@coders nick))
+             :coder (clean-coder coder)
              :workspace (clean-workspace workspace)})))
 
 (defn coder-say
@@ -88,11 +98,11 @@
 
 (defn coder-cursor
   [coder-ch workspace-ch request]
-  (let [name (keyword (request :workspace))
+  (let [workspace-name (keyword (request :workspace))
         nick (keyword (request :nick))
-        coder (-> @coders nick)]
+        coder (nick @coders)]
     (dosync
-     (alter (-> @coders nick :cursors name) #(request :cursor)))
+     (alter (-> @coders nick :cursors workspace-name) #(request :cursor)))
     (encode request)))
 
 (defn coder-change
@@ -102,16 +112,14 @@
 (defn coder-leave
   "Removes the given coder from the workspace"
   [coder-ch workspace-ch request]
-  (let [name (keyword (request :workspace))
+  (let [workspace-name (keyword (request :workspace))
         nick (keyword (request :nick))
-        workspace (-> @workspaces name)
-        removed (assoc workspace :coders (dissoc (-> workspace :coders) nick))]
+        coder (nick @coders)
+        workspace (workspace-name @workspaces)]
+    (remove-coder-from-workspace workspace coder)
     (close coder-ch)
     (close workspace-ch)
     (encode {:op :leave :nick nick})))
-
-(defn remove-coder-from-workspace
-  []
 
 (defn coder-disconnect
   "Removes the given coder from the map and notifies all clients."
@@ -121,7 +129,7 @@
   (dosync
    (alter coders dissoc (keyword (request :nick))))
   (close ch)
-  (encode request))
+  (encode request)))
 
 (defn respond-to
   [commands channels]
