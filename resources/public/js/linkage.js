@@ -156,8 +156,28 @@ var linkage = function() {
       trigger(value);
     };
 
+    that.updateIn = function(keys, f) {
+      var val = value;
+      var finalkey = keys[keys.length-1];
+      for (var k = 0; k < keys.length-1; k++) {
+        val = val[keys[k]];
+      }
+      val[finalkey] = f(val[finalkey]);
+      trigger(value);
+    }
+
     that.del = function(key) {
       delete value[key];
+      trigger(value);
+    };
+
+    that.delIn = function(keys) {
+      var val = value;
+      var finalkey = keys[keys.length-1];
+      for (var k = 0; k < keys.length-1; k++) {
+        val = val[keys[k]];
+      }
+      if (val) delete val[finalkey];
       trigger(value);
     };
 

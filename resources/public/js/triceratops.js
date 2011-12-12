@@ -1,6 +1,9 @@
 var triceratops = function() {
   var socket, self, editor, hline;
+  var cursors = {};
+
   var self = linkage.link({});
+  var place = linkage.link({});
   var workspace = linkage.link({});
   var workspaces = linkage.link({});
   var coders = linkage.link({});
@@ -34,35 +37,53 @@ var triceratops = function() {
   };
 
   // CODERS
-  var coder = function(base) {
-    return {
-      nick: base.nick,
-      color: "#bb3377"
-    };
-  };
+  var updateCursor = function(message) {
+    var nick = message.nick;
+    var cursor = message.cursor;
+    var ws = message.workspace;
 
-  var updateCursor = function(nick, cursor) {
     var next = {line: cursor.line, ch: cursor.ch+1};
-    var other = coders()[nick];
+    if (coders()[nick]) {
+      if (cursors[nick]) cursors[nick].clear();
+      cursors[nick] = editor.markText(cursor, next, nick+'cursor other');
 
-    if (other.box) other.box.clear();
-    other.cursor = cursor;
-    other.box = editor.markText(cursor, next, 'other');
+      workspaces()[ws].cursors[nick] = message.cursor;
+      coders()[nick].cursors[ws] = message.cursor;
+    }
   }
 
   var updateCode = function(message) {
-    console.log(message);
     if (message.nick !== self().nick) {
       editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
     }
   }
 
   var coderConnect = function(base) {
-    coders.update(base.coder.nick, coder(base.coder));
+    coders.update(base.coder.nick, base.coder);
   };
 
   var coderJoin = function(base) {
-    coders.update(base.nick, coder(base));
+    workspaces.update(base.workspace.name, base.workspace);
+    if (base.coder.nick === self().nick || base.workspace.name === workspace().name) {
+      workspace(base.workspace);
+    }
+  };
+
+  var coderSay = function(message) {
+    $('#out')
+      .append('<div class="chat"><span class="nick">'
+              +message.nick
+              +': </span><span class="statement">'
+              +message.message
+              +"</span></div>");
+  }
+
+  var coderLeave = function(base) {
+    if (workspaces()[base.workspace].cursors[base.nick]) {
+      workspaces.delIn([base.workspace, 'cursors', base.nick]);
+      workspace.delIn(['cursors', base.nick]);
+      coders.delIn([base.nick, 'cursors', base.workspace]);
+    }
   };
 
   var commands = {
@@ -77,11 +98,14 @@ var triceratops = function() {
     join: function(message) {
       coderJoin(message); 
     },
+    leave: function(message) {
+      coderLeave(message);
+    },
     say: function(message) {
-      $('#out').append('<div class="chat"><span class="nick">'+message.nick+': </span><span class="statement">'+message.message+"</span></div>");
+      coderSay(message);
     },
     cursor: function(message) {
-      updateCursor(message.nick, message.cursor);
+      updateCursor(message);
     },
     code: function(message) {
       updateCode(message);
@@ -197,13 +221,11 @@ var triceratops = function() {
   }
 
   var compareCursors = function(a, b) {
-    console.log(''+a.ch+' '+b.ch);
     return (a.line === b.line) && ((a.ch === b.ch) || (1 === a.ch - b.ch));
   }
 
   var codeChange = function(editor, info) {
     var my = self();
-    console.log(info);
     my.cursor = editor.getCursor();
     my.selection = editor.getSelection();
     if (compareCursors(my.cursor, info.from)) {
@@ -233,6 +255,14 @@ var triceratops = function() {
   };
 
   var die = function() {
+    if (workspace().name) {
+      send({
+        workspace: workspace().name,
+        nick: self().nick,
+        op: 'leave'
+      });
+    }
+
     send({
       nick: self().nick, 
       op: 'disconnect'
@@ -268,12 +298,12 @@ var triceratops = function() {
     },
 
     workspace: function(params) {
-      var updateCoders = function(codersMaster) {
-        var codersList = _.map(_.keys(codersMaster), function(nick) {return '<li style="color: '+codersMaster[nick].color+'">'+nick+'</li>'}).join('');
+      var updateWorkspace = function(updated) {
+        var codersList = _.map(_.keys(updated.cursors), function(nick) {return '<li style="color: '+updated.cursors[nick].color+'">'+nick+'</li>'}).join('');
         $('#coders ul').html(codersList);
       };
 
-      workspace.update('name', params.workspace);
+      place.update('name', params.workspace);
       return {
         name: params.workspace,
         url: '/a/workspace',
@@ -282,7 +312,7 @@ var triceratops = function() {
           gl.init();
           gl.animate();
           setupCodeMirror();
-          coders.watch(updateCoders);
+          workspace.watch(updateWorkspace);
           send({
             op: 'join',
             workspace: params.workspace,
@@ -291,7 +321,7 @@ var triceratops = function() {
         },
 
         depart: function() {
-          coders.unwatch(updateCoders);
+          workspace.unwatch(updateWorkspace);
         }
       }
     }
@@ -299,8 +329,12 @@ var triceratops = function() {
 
   var chooseNick = function(after) {
     return function(nick) {
-      self(coder({nick: nick}));
-      console.log(self().nick);
+      self({
+        nick: nick,
+        color: '#5533cc',
+        cursors: {}
+      });
+
       send({
         op: 'connect', 
         nick: nick,
@@ -320,7 +354,7 @@ var triceratops = function() {
   }
 
   var arrive = function(destination) {
-    workspace(destination);
+    place(destination);
     $.ajax({
       url: destination.url,
       success: function(body) {
@@ -334,8 +368,8 @@ var triceratops = function() {
     return function(params) {
       var destination = purpose(params);
       var consummate = function() {
-        if (workspace().depart) {
-          workspace().depart();
+        if (place().depart) {
+          place().depart();
         } 
         arrive(destination);
       }
@@ -360,6 +394,9 @@ var triceratops = function() {
 
     coders: coders,
     self: self,
+    place: place,
+    workspace: workspace,
+    workspaces: workspaces,
     editor: function() {return editor}
   };
 }();

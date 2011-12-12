@@ -33,9 +33,16 @@
 (defrecord Coder [ch nick color cursors])
 (defrecord Cursor [workspace coder pos color])
 
+(defn mapmap
+  [f m]
+  (if (empty? m)
+    m
+    (into {} (for [[k v] m] [k (f v)]))))
+
 (defn clean-cursors
   [cursor-haver]
-  (update-in cursor-haver [:cursors] #(map deref (vals %))))
+  (update-in cursor-haver [:cursors] #(mapmap deref %)))
+;;  (update-in cursor-haver [:cursors] #(into {} (for [[k v] %] [k (deref v)]))))
 
 (defn clean-coder
   [coder]
@@ -53,8 +60,8 @@
   (let [nick (keyword (request :nick))
         color (keyword (request :color))
         coder (Coder. ch nick color {})
-        out-coders (map clean-coder (vals @coders))
-        out-workspaces (map clean-workspace (vals @workspaces))]
+        out-coders (mapmap clean-coder @coders)
+        out-workspaces (mapmap clean-workspace @workspaces)]
     (dosync
      (alter coders merge {(keyword (:nick coder)) coder}))
     (enqueue ch (encode {:op :status :coders out-coders :workspaces out-workspaces}))
@@ -87,8 +94,9 @@
         pos {:line 0 :ch 0}
         color (:color coder)
         cursor (ref (Cursor. workspace-name nick pos color))
-        workspace (or (workspace-name @workspaces)
-                      (Workspace. (permanent-channel) workspace-name "" {} [] {}))
+        workspace
+        (or (workspace-name @workspaces)
+            (Workspace. (permanent-channel) workspace-name "" {nick cursor} [] {}))
 
         coder-ch (fork (:ch coder))
         workspace-ch (fork (:ch workspace))
@@ -127,11 +135,13 @@
   (let [workspace-name (keyword (request :workspace))
         nick (keyword (request :nick))
         coder (nick @coders)
-        workspace (workspace-name @workspaces)]
+        workspace (workspace-name @workspaces)
+        response (encode {:op :leave :nick nick :workspace workspace-name})]
     (remove-coder-from-workspace workspace coder)
+    (enqueue (:ch workspace) response)
     (close coder-ch)
     (close workspace-ch)
-    (encode {:op :leave :nick nick})))
+    response))
 
 (defn coder-disconnect
   "Removes the given coder from the map and notifies all clients."
