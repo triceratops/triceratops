@@ -54,7 +54,8 @@ var triceratops = function() {
 
   var updateCode = function(message) {
     if (message.nick !== self().nick) {
-      editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
+      // editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
+      editor.setValue(message.code);
     }
   }
 
@@ -218,32 +219,63 @@ var triceratops = function() {
       cursor: my.cursor, 
       selection: my.selection
     });
-  }
+  };
 
   var compareCursors = function(a, b) {
     return (a.line === b.line) && ((a.ch === b.ch) || (1 === a.ch - b.ch));
+  };
+
+  var unrollNext = function(info) {
+    var full = info.text;
+    while (info.next) {
+      info = info.next;
+      full += info.text;
+    }
+    return full;
   }
 
   var codeChange = function(editor, info) {
     var my = self();
     my.cursor = editor.getCursor();
     my.selection = editor.getSelection();
+//    info.text = unrollNext(info);
+
+    console.log(editor.getValue());
     if (compareCursors(my.cursor, info.from)) {
       send({
         workspace: workspace().name,
         nick: my.nick, 
         op: 'code', 
-        info: info
+        info: info // ,
+        // code: editor.getValue()
       });
     }
-  }
+  };
+
+  var keyEvent = function(ed, e) {
+    if (e.type === 'keypress' && e.keyIdentifier === "Enter") {
+      console.log(ed.getCursor());
+      send({
+        workspace: workspace().name,
+        nick: self().nick, 
+        op: 'code', 
+        info: {
+          from: ed.getCursor(),
+          to: ed.getCursor(),
+          text: "\n" // ,
+          // code: editor.getValue()
+        }
+      });
+    }
+  };
 
   var setupCodeMirror = function() {
     editor = CodeMirror.fromTextArea(document.getElementById('code'), {
       mode: "javascript",
       lineNumbers: true,
       onCursorActivity: cursorActivity, 
-      onChange: codeChange
+      onChange: codeChange,
+      onKeyEvent: keyEvent
     });
     hline = editor.setLineClass(0, "activeline");
   };

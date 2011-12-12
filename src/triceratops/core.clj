@@ -127,7 +127,11 @@
 
 (defn coder-change
   [coder-ch workspace-ch request]
-  (encode request))
+  (let [workspace-name (keyword (request :workspace))
+        nick (keyword (request :nick))]
+    ;; (dosync
+    ;;  (alter workspaces update-in [workspace-name :code] (fn [_] (request :code))))
+    (encode request)))
 
 (defn coder-leave
   "Removes the given coder from the workspace"
