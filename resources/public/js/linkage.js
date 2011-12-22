@@ -149,6 +149,10 @@ var linkage = function() {
       delete observers[observer];
     };
 
+    that.kill = function() {
+      observers = {};
+    }
+
     // used for updating a value in an object, rather than 
     // replacing the object as a whole.
     that.update = function(key, subvalue) {
@@ -156,6 +160,8 @@ var linkage = function() {
       trigger(value);
     };
 
+    // given a list of keys, burrow down into the value and apply f
+    // to whatever resides there.
     that.updateIn = function(keys, f) {
       var val = value;
       var finalkey = keys[keys.length-1];
