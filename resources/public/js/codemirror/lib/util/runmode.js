@@ -1,17 +1,44 @@
-CodeMirror.runMode = function(string, modespec, callback) {
-  var mode = CodeMirror.getMode({indentUnit: 2}, modespec);
-  var isNode = callback.nodeType == 1;
-  if (isNode) {
-    var node = callback, accum = [];
-    callback = function(string, style) {
-      if (string == "\n")
-        accum.push("<br>");
-      else if (style)
-        accum.push("<span class=\"cm-" + CodeMirror.htmlEscape(style) + "\">" + CodeMirror.htmlEscape(string) + "</span>");
-      else
-        accum.push(CodeMirror.htmlEscape(string));
-    }
+CodeMirror.runMode = function(string, modespec, callback, options) {
+  var mode = CodeMirror.getMode(CodeMirror.defaults, modespec);
+
+  if (callback.nodeType == 1) {
+    var tabSize = (options && options.tabSize) || CodeMirror.defaults.tabSize;
+    var node = callback, col = 0;
+    node.innerHTML = "";
+    callback = function(text, style) {
+      if (text == "\n") {
+        node.appendChild(document.createElement("br"));
+        col = 0;
+        return;
+      }
+      var content = "";
+      // replace tabs
+      for (var pos = 0;;) {
+        var idx = text.indexOf("\t", pos);
+        if (idx == -1) {
+          content += text.slice(pos);
+          col += text.length - pos;
+          break;
+        } else {
+          col += idx - pos;
+          content += text.slice(pos, idx);
+          var size = tabSize - col % tabSize;
+          col += size;
+          for (var i = 0; i < size; ++i) content += " ";
+          pos = idx + 1;
+        }
+      }
+
+      if (style) {
+        var sp = node.appendChild(document.createElement("span"));
+        sp.className = "cm-" + style.replace(/ +/g, " cm-");
+        sp.appendChild(document.createTextNode(content));
+      } else {
+        node.appendChild(document.createTextNode(content));
+      }
+    };
   }
+
   var lines = CodeMirror.splitLines(string), state = CodeMirror.startState(mode);
   for (var i = 0, e = lines.length; i < e; ++i) {
     if (i) callback("\n");
@@ -22,6 +49,4 @@ CodeMirror.runMode = function(string, modespec, callback) {
       stream.start = stream.pos;
     }
   }
-  if (isNode)
-    node.innerHTML = accum.join("");
 };
