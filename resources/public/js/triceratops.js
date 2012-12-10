@@ -30,7 +30,9 @@ var triceratops = function() {
   var send = function(message) {
     if (!window.WebSocket) { return; }
     if (socket.readyState == (WebSocket.OPEN || 1)) {
-      socket.send(JSON.stringify(message));
+      var encoded = JSON.stringify(message);
+      console.log("<-- "+encoded);
+      socket.send(encoded);
     } else {
       alert('The WebSocket is not open!');
     }
@@ -118,7 +120,7 @@ var triceratops = function() {
   }
 
   var receive = function(raw) {
-    console.log(raw);
+    console.log("--> "+raw);
     var message = JSON.parse(raw);
     commands[message.op](message);
   };
@@ -232,23 +234,23 @@ var triceratops = function() {
       full += info.text;
     }
     return full;
-  }
+  };
 
   var codeChange = function(editor, info) {
     var my = self();
     my.cursor = editor.getCursor();
     my.selection = editor.getSelection();
-//    info.text = unrollNext(info);
+    info.text = unrollNext(info);
 
-    console.log(editor.getValue());
+    console.log(info);
     if (compareCursors(my.cursor, info.from)) {
-      send({
-        workspace: workspace().name,
-        nick: my.nick, 
-        op: 'code', 
-        info: info // ,
-        // code: editor.getValue()
-      });
+      // send({
+      //   workspace: workspace().name,
+      //   nick: my.nick, 
+      //   op: 'code', 
+      //   info: info,
+      //   code: editor.getValue()
+      // });
     }
   };
 
@@ -258,13 +260,12 @@ var triceratops = function() {
       send({
         workspace: workspace().name,
         nick: self().nick, 
-        op: 'code', 
+        op: 'newline', 
         info: {
           from: ed.getCursor(),
-          to: ed.getCursor(),
-          text: "\n" // ,
-          // code: editor.getValue()
-        }
+          to: ed.getCursor()
+        },
+        code: editor.getValue()
       });
     }
   };
@@ -287,18 +288,20 @@ var triceratops = function() {
   };
 
   var die = function() {
-    if (workspace().name) {
+    if (self().nick) {
+      if (workspace().name) {
+        send({
+          workspace: workspace().name,
+          nick: self().nick,
+          op: 'leave'
+        });
+      }
+
       send({
-        workspace: workspace().name,
-        nick: self().nick,
-        op: 'leave'
+        nick: self().nick, 
+        op: 'disconnect'
       });
     }
-
-    send({
-      nick: self().nick, 
-      op: 'disconnect'
-    });
 
     closeWebSocket();
   };
@@ -418,6 +421,7 @@ var triceratops = function() {
   routing.add('/w/:workspace', 'workspace', action(actions.workspace));
 
   return {
+    socket: socket,
     send: send,
     hatch: hatch,
     die: die,

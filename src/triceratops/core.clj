@@ -11,7 +11,7 @@
           enqueue receive receive-all
           filter* siphon map* close fork)]
         [aleph.http :only (start-http-server)])
-  (:require [ring.adapter.jetty :as ring]
+  (:require [swank.swank :as swank]
             [compojure.route :as route]
             [compojure.handler :as handler]))
 
@@ -42,7 +42,6 @@
 (defn clean-cursors
   [cursor-haver]
   (update-in cursor-haver [:cursors] #(mapmap deref %)))
-;;  (update-in cursor-haver [:cursors] #(into {} (for [[k v] %] [k (deref v)]))))
 
 (defn clean-coder
   [coder]
@@ -57,59 +56,66 @@
 (defn coder-connect
   "Adheres the coder given by request to the channel ch."
   [ch request]
-  (let [nick (keyword (request :nick))
-        color (keyword (request :color))
+  (let [nick (-> request :nick keyword)
+        color (-> request :color keyword)
         coder (Coder. ch nick color {})
         out-coders (mapmap clean-coder @coders)
         out-workspaces (mapmap clean-workspace @workspaces)]
     (dosync
-     (alter coders merge {(keyword (:nick coder)) coder}))
+     (alter coders merge {(:nick coder) coder}))
     (enqueue ch (encode {:op :status :coders out-coders :workspaces out-workspaces}))
     (encode {:op :connect :coder (clean-coder coder)})))
 
-(def respond-to)
-(def workspace-commands)
+(declare respond-to)
+(declare workspace-commands)
 
 (defn add-coder-to-workspace
   [workspace coder cursor]
-  (dosync
-   (if ((:name workspace) @workspaces)
-     (alter workspaces assoc-in [(:name workspace) :cursors (:nick coder)] cursor)
-     (let [joined (assoc-in workspace [:cursors (:nick coder)] cursor)]
-       (alter workspaces assoc (:name workspace) joined)))
-   (alter coders assoc-in [(:nick coder) :cursors (:name workspace)] cursor)))
+  (let [space (:name workspace)
+        nick (:nick coder)]
+    (dosync
+     (if (get @workspaces space)
+       (alter workspaces assoc-in [space :cursors nick] cursor)
+       (let [joined (assoc-in workspace [:cursors nick] cursor)]
+         (alter workspaces assoc space joined)))
+     (alter coders assoc-in [nick :cursors space] cursor))))
 
 (defn remove-coder-from-workspace
   [workspace coder]
-  (dosync
-   (alter workspaces update-in [(:name workspace) :cursors] #(dissoc % (:nick coder)))
-   (alter coders update-in [(:nick coder) :cursors] #(dissoc % (:name workspace)))))
+  (let [space (:name workspace)
+        nick (:nick coder)]
+    (dosync
+     (alter workspaces update-in [space :cursors] #(dissoc % nick))
+     (alter coders update-in [nick :cursors] #(dissoc % space)))))
 
 (defn coder-join
   "Joins the coder to the given workspace."
   [ch request]
-  (let [workspace-name (keyword (request :workspace))
-        nick (keyword (request :nick))
-        coder (-> @coders nick)
+  (let [space (-> request :workspace keyword)
+        nick (-> request :nick keyword)
+        coder (get @coders nick)
         pos {:line 0 :ch 0}
         color (:color coder)
-        cursor (ref (Cursor. workspace-name nick pos color))
-        workspace
-        (or (workspace-name @workspaces)
-            (Workspace. (permanent-channel) workspace-name "" {nick cursor} [] {}))
+        cursor (ref (Cursor. space nick pos color))
+        workspace (or
+                   (get @workspaces space)
+                   (Workspace. (permanent-channel) space "" {nick cursor} [] {}))
 
-        coder-ch (fork (:ch coder))
-        workspace-ch (fork (:ch workspace))
+        ;; coder-ch (fork (:ch coder))
+        ;; workspace-ch (fork (:ch workspace))
+
+        coder-ch (:ch coder)
+        workspace-ch (:ch workspace)
 
         decoded (map* decode coder-ch)
-        filtered (filter* #(if (workspace-commands (keyword (:op %))) %) decoded)
+        filtered (filter* #(get workspace-commands (-> % :op keyword)) decoded)
         process (map* (respond-to workspace-commands [coder-ch workspace-ch]) filtered)]
     (siphon process (:ch workspace))
     (siphon workspace-ch (:ch coder))
     (add-coder-to-workspace workspace coder cursor)
     (encode {:op :join
-             :coder (clean-coder (nick @coders))
-             :workspace (clean-workspace (workspace-name @workspaces))})))
+             :coder (clean-coder (get @coders nick))
+             :workspace (clean-workspace (get @workspaces space))})))
 
 (defn coder-say
   [coder-ch workspace-ch request]
@@ -117,51 +123,56 @@
 
 (defn coder-cursor
   [coder-ch workspace-ch request]
-  (let [workspace-name (keyword (request :workspace))
-        nick (keyword (request :nick))
-        coder (nick @coders)
-        cursor (-> @coders nick :cursors workspace-name)]
+  (let [space (-> request :workspace keyword)
+        nick (-> request :nick keyword)
+        coder (get @coders nick)
+        cursor (-> coder :cursors space)]
     (dosync
      (alter cursor assoc :pos (request :cursor)))
     (encode (assoc request :cursor (:pos @cursor)))))
 
 (defn coder-change
   [coder-ch workspace-ch request]
-  (let [workspace-name (keyword (request :workspace))
-        nick (keyword (request :nick))]
+  (let [space (-> request :workspace keyword)
+        nick (-> request :nick keyword)]
     ;; (dosync
-    ;;  (alter workspaces update-in [workspace-name :code] (fn [_] (request :code))))
+    ;;  (alter workspaces update-in [space :code] (fn [_] (request :code))))
     (encode request)))
 
 (defn coder-leave
   "Removes the given coder from the workspace"
   [coder-ch workspace-ch request]
-  (let [workspace-name (keyword (request :workspace))
-        nick (keyword (request :nick))
-        coder (nick @coders)
-        workspace (workspace-name @workspaces)
-        response (encode {:op :leave :nick nick :workspace workspace-name})]
+  (let [space (-> request :workspace keyword)
+        nick (-> request :nick keyword)
+        coder (get @coders nick)
+        workspace (get @workspaces space)
+        response (encode {:op :leave :nick nick :workspace space})]
     (remove-coder-from-workspace workspace coder)
     (enqueue (:ch workspace) response)
-    (close coder-ch)
-    (close workspace-ch)
+    ;; (close coder-ch)
+    ;; (close workspace-ch)
     response))
 
 (defn coder-disconnect
   "Removes the given coder from the map and notifies all clients."
   [ch request]
-  (let [nick (keyword (request :nick))]
-    (map #() (-> @coders nick :cursors))
+  (let [nick (-> request :nick keyword)
+        coder (get @coders nick)]
+    (doseq [cursor (:cursors coder)]
+      (let [space (:workspace cursor)
+            workspace (get @workspaces space)]
+        (coder-leave (:ch coder) (:ch workspace) {:workspace space :nick nick})))
     (dosync
-     (alter coders dissoc (keyword (request :nick))))
-    (close ch)
+     (alter coders dissoc nick))
+    (close (:ch coder))
     (encode request)))
 
 (defn respond-to
   [commands channels]
   (fn [request]
     (debug request)
-    (let [command (commands (keyword (request :op)))]
+    (let [op (-> request :op keyword)
+          command (get commands op)]
       (if command
         (apply command (conj channels request))))))
 
@@ -181,13 +192,14 @@
   the channel it will use to broadcast to other coders."
   [ch handshake]
   (let [decoded (map* decode ch)
-        filtered (filter* #(if (base-commands (keyword (:op %))) %) decoded)]
+        filtered (filter* #(get base-commands (-> % :op keyword)) decoded)]
     (siphon (map* (respond-to base-commands [ch]) filtered) broadcast)
     (siphon broadcast ch)))
 
 (defn start-websockets
   "Starts the websocket server."
   [handler port]
+  (swank/start-server :host "127.0.0.1" :port 11100)
   (start-http-server handler {:port port :websocket true}))
 
 (defn gateway
@@ -261,17 +273,22 @@
   (GET "/a/:path" {params :params} ((paths (keyword (params :path))) params))
   (route/not-found (nothing)))
 
-(def app (handler/site triceratops-routes))
+(declare app)
 
-(defn start-frontend
-  [handler port]
-  (ring/run-jetty handler {:port port :join? false}))
-
-(defn start
+(defn init
   []
-  (start-frontend (var app) 11133)
-  (start-websockets triceratops 11122))
+  (start-websockets triceratops 11122)
+  (def app (handler/site triceratops-routes)))
 
-(defn -main []
-  (start))
+;; (defn start-frontend
+;;   [handler port]
+;;   (ring/run-jetty handler {:port port :join? false}))
+
+;; (defn start
+;;   []
+;;   (start-frontend (var app) 11133)
+;;   (start-websockets triceratops 11122))
+
+;; (defn -main []
+;;   (start))
 

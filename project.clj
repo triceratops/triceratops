@@ -1,19 +1,15 @@
-(defproject triceratops "1.0.0-SNAPSHOT"
+(defproject triceratops "0.0.1"
   :description "collaborative realtime livecoding in the browser"
   :dependencies [[org.clojure/clojure "1.3.0"]
-                 [org.clojure/algo.generic "0.1.1-SNAPSHOT"]
-                 ;;[aleph "0.2.1-SNAPSHOT"]
-                 [org.clojars.smallrivers/aleph "0.2.1-SNAPSHOT"]
-                 [ring/ring-jetty-adapter "0.3.10"]
-                 [compojure "0.6.4"]
-                 [hiccup "0.3.7"]
-                 [cheshire "2.0.3"]]
-  :dev-dependencies [[swank-clojure "1.4.0-SNAPSHOT"]
-                     [clojure-source "1.3.0"]
-                     [backtype/autodoc "0.9.0-SNAPSHOT"]]
+                 [aleph "0.3.0-beta8"]
+                 [compojure "1.1.3"]
+                 [hiccup "1.0.2"]
+                 [cheshire "5.0.1"]
+                 [swank-clojure "1.4.2" :exclusions [clj-stacktrace]]]
   :jvm-opts ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"]
-  :main triceratops.core
-  :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"
-                 ;; "sonatype-oss-snapshots" "https://oss.sonatype.org/content/repositories/snapshots/"}
-                 }
-  )
+  :ring {:handler triceratops.core/app
+         :servlet-name "fuelgame-frontend"
+         :init triceratops.core/init
+         :port 11133}
+  :main triceratops.core)
+
