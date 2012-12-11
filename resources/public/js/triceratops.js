@@ -235,21 +235,41 @@ var triceratops = function() {
     }
   }
 
+  var previousLine = function(pos) {
+    var previous = pos.line - 1;
+    if (previous < 0) {
+      return {line: 0, ch: 0};
+    } else {
+      console.log("previous"+previous);
+      var line = editor.lineInfo(previous);
+      console.log("line text: "+line.text);
+      return {line: previous, ch: line.text.length - 1};
+    }
+  }
+
   var unrollNext = function(info) {
     console.log(info);
     var full = joinIfArray(info.text);
     var to = info.to;
-    if (!info.next && info.from.hasOwnProperty('outside') || info.text === '') {
+    var from = info.from;
+
+    if ('\n' === info.text[0]) {
+      from = previousLine(from);
+    }
+
+    if (info.origin === 'delete') {
+      
+    } else if (!info.next && full === '') {
       full += "\n";
     }
+    // (info.from.hasOwnProperty('after') && info.from.after === false || 
 
     while (info.next) {
       info = info.next;
-      to = info.to;
       full += "\n" + joinIfArray(info.text);
     }
 
-    return {text: full, to: to, from: info.from};
+    return {text: full, to: to, from: from};
   };
 
   var codeChange = function(editor, info) {
@@ -264,7 +284,6 @@ var triceratops = function() {
         nick: my.nick,
         op: 'code',
         info: message
-        // code: editor.getValue()
       });
     }
   };
@@ -289,9 +308,6 @@ var triceratops = function() {
     editor = CodeMirror.fromTextArea(document.getElementById('code'), {
       mode: "javascript",
       lineNumbers: true
-      // onCursorActivity: cursorActivity, 
-      // onChange: codeChange,
-      // onKeyEvent: keyEvent
     });
     editor.on("change", codeChange);
     editor.on("cursorActivity", cursorActivity);

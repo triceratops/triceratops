@@ -140,11 +140,12 @@
      (alter workspaces update-in [space :cursors nick :pos] (-> request :cursor constantly))
      (alter coders update-in [nick :cursors space :pos] (-> request :cursor constantly)))
      ;; (alter cursor assoc :pos (request :cursor)))
-    (encode (assoc request :cursor (:pos cursor)))))
+    (encode request))) ;; (assoc request :cursor (:pos cursor)))))
 
 (defn split-newlines
   [s]
-  (let [raw (re-seq #"([^\n]*)\n?" s)]
+  (let [t (if (re-find #"\n$" s) (str s "\n") s)
+        raw (re-seq #"([^\n]*)\n?" t)]
     (drop-last (map last raw))))
 
 (defn remove-span
@@ -153,11 +154,19 @@
    (.substring s 0 from)
    (.substring s to (count s))))
 
+(defn pad-to
+  [code to]
+  (let [diff (- to (dec (count code)))]
+    (if (pos? diff)
+      (concat code (repeat diff ""))
+      code)))
+
 (defn update-code
   [code from to text]
-  (let [before (-> from :line inc (take code))
+  (let [padded (pad-to code (:line to))
+        before (-> from :line inc (take padded))
         before-line (or (last before) "")
-        after (-> to :line (drop code))
+        after (-> to :line (drop padded))
         after-line (or (first after) "")
         pre-end (min (count before-line) (:ch from))
         post-end (count after-line)
@@ -176,7 +185,7 @@
             (recur (cons (first remaining) ball) (rest remaining))))
 
         updated (concat (drop-last before) (reverse spliced) (rest after))]
-    (map println updated)
+    (doseq [u updated] (println u))
     updated))
 
 (defn coder-change
