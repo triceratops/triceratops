@@ -56,7 +56,7 @@ var triceratops = function() {
 
   var updateCode = function(message) {
     if (message.nick !== self().nick) {
-      editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
+      editor.replaceRange(message.info.text, message.info.from, message.info.to);
     }
   }
 
@@ -68,6 +68,7 @@ var triceratops = function() {
     workspaces.update(base.workspace.name, base.workspace);
     if (base.coder.nick === self().nick || base.workspace.name === workspace().name) {
       workspace(base.workspace);
+      editor.setValue(base.workspace.code.join("\n"));
     }
   };
 
@@ -226,12 +227,26 @@ var triceratops = function() {
     return (a.line === b.line) && ((a.ch === b.ch) || (1 === a.ch - b.ch));
   };
 
+  var joinIfArray = function(something) {
+    if (something instanceof Array) {
+      return something.join("");
+    } else {
+      return something;
+    }
+  }
+
   var unrollNext = function(info) {
-    var full = info.text;
+    console.log(info);
+    var full = joinIfArray(info.text);
+    if (!info.next && info.from.hasOwnProperty('outside')) {
+      full += "\n";
+    }
+
     while (info.next) {
       info = info.next;
-      full += info.text;
+      full += "\n" + joinIfArray(info.text);
     }
+
     return full;
   };
 
@@ -241,7 +256,6 @@ var triceratops = function() {
     my.selection = editor.getSelection();
     info.text = unrollNext(info);
 
-    console.log(info);
     if (info.origin === 'input') {
       send({
         workspace: workspace().name,
@@ -253,21 +267,21 @@ var triceratops = function() {
     }
   };
 
-  var keyEvent = function(ed, e) {
-    if (e.type === 'keypress' && e.keyIdentifier === "Enter") {
-      console.log(ed.getCursor());
-      send({
-        workspace: workspace().name,
-        nick: self().nick, 
-        op: 'newline', 
-        info: {
-          from: ed.getCursor(),
-          to: ed.getCursor()
-        },
-        code: editor.getValue()
-      });
-    }
-  };
+  // var keyEvent = function(ed, e) {
+  //   if (e.type === 'keypress' && e.keyIdentifier === "Enter") {
+  //     console.log("ENTER"+ed.getCursor());
+  //     send({
+  //       workspace: workspace().name,
+  //       nick: self().nick, 
+  //       op: 'newline', 
+  //       info: {
+  //         from: ed.getCursor(),
+  //         to: ed.getCursor()
+  //       },
+  //       code: editor.getValue()
+  //     });
+  //   }
+  // };
 
   var setupCodeMirror = function() {
     editor = CodeMirror.fromTextArea(document.getElementById('code'), {

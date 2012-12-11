@@ -53,6 +53,14 @@
   (clean-cursors
    (select-keys workspace [:name :code :cursors])))
 
+(defn find-coder-workspace
+  [request]
+  (let [space (-> request :workspace keyword)
+        nick (-> request :nick keyword)
+        workspace (get @workspaces space)
+        coder (get @coders nick)]
+    [space nick workspace coder]))
+
 (defn coder-connect
   "Adheres the coder given by request to the channel ch."
   [ch request]
@@ -97,9 +105,11 @@
         pos {:line 0 :ch 0}
         color (:color coder)
         cursor (ref (Cursor. space nick pos color))
-        workspace (or
-                   (get @workspaces space)
-                   (Workspace. (permanent-channel) space "" {nick cursor} [] {}))
+
+        workspace
+        (or
+         (get @workspaces space)
+         (Workspace. (permanent-channel) space [""] {nick cursor} [] {}))
 
         ;; coder-ch (fork (:ch coder))
         ;; workspace-ch (fork (:ch workspace))
@@ -123,20 +133,57 @@
 
 (defn coder-cursor
   [coder-ch workspace-ch request]
-  (let [space (-> request :workspace keyword)
-        nick (-> request :nick keyword)
-        coder (get @coders nick)
+  (let [[space nick workspace coder] (find-coder-workspace request)
         cursor (-> coder :cursors space)]
     (dosync
      (alter cursor assoc :pos (request :cursor)))
     (encode (assoc request :cursor (:pos @cursor)))))
 
+(defn split-newlines
+  [s]
+  (let [raw (re-seq #"([^\n]*)\n?" s)]
+    (drop-last (map last raw))))
+
+(defn remove-span
+  [s from to]
+  (str
+   (.substring s 0 from)
+   (.substring s to (count s))))
+
+(defn update-code
+  [code from to text]
+  (let [before (-> from :line inc (take code))
+        after (-> to :line (drop code))
+        after-line (first after)
+        pre (.substring (last before) 0 (:ch from))
+        post (.substring after-line (:ch to) (count after-line))
+        lines (split-newlines text)
+        first-line (first lines)
+        center (str pre first-line)
+    
+        spliced
+        (loop [ball (list center)
+               remaining (rest lines)]
+          (if (empty? remaining)
+            (cons (str (first ball) post) (rest ball))
+            (recur (cons (first remaining) ball) (rest remaining))))
+
+        updated (concat (drop-last before) (reverse spliced) (rest after))]
+    (map println updated)
+    updated))
+
 (defn coder-change
   [coder-ch workspace-ch request]
   (let [space (-> request :workspace keyword)
-        nick (-> request :nick keyword)]
-    ;; (dosync
-    ;;  (alter workspaces update-in [space :code] (fn [_] (request :code))))
+        nick (-> request :nick keyword)
+        from (-> request :info :from)
+        to (-> request :info :to)
+        text (-> request :info :text)]
+    (dosync
+     (alter
+      workspaces update-in [space :code]
+      (fn [code]
+        (update-code code from to text))))
     (encode request)))
 
 (defn coder-leave
@@ -255,7 +302,7 @@
      [:ul]]
     [:form
      [:textarea#code {:name "code"}
-      "var yellow = {wowowowow: 'hwhwhwhwhwhwhwhw'}"]]
+      ""]]
     [:div#gl]]))
 
 (def paths
@@ -270,7 +317,7 @@
   (route/files "/" {:root "resources/public"})
   (GET "/" {params :params} (gateway params))
   (GET "/w/:workspace" {params :params} (gateway params))
-  (GET "/a/:path" {params :params} ((paths (keyword (params :path))) params))
+  (GET "/a/:path" {params :params} ((-> params :path keyword paths) params))
   (route/not-found (nothing)))
 
 (declare app)
