@@ -47,7 +47,7 @@ var triceratops = function() {
     var next = {line: cursor.line, ch: cursor.ch+1};
     if (coders()[nick]) {
       if (cursors[nick]) cursors[nick].clear();
-      cursors[nick] = editor.markText(cursor, next, nick+'cursor other');
+      cursors[nick] = editor.markText(cursor, next, {className: nick+'cursor other'});
 
       workspaces()[ws].cursors[nick] = message.cursor;
       coders()[nick].cursors[ws] = message.cursor;
@@ -56,8 +56,7 @@ var triceratops = function() {
 
   var updateCode = function(message) {
     if (message.nick !== self().nick) {
-      // editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
-      editor.setValue(message.code);
+      editor.replaceRange(message.info.text[0], message.info.from, message.info.to);
     }
   }
 
@@ -210,8 +209,8 @@ var triceratops = function() {
 
   var cursorActivity = function() {
     var my = self();
-    editor.setLineClass(hline, null);
-    hline = editor.setLineClass(editor.getCursor().line, "activeline");
+    editor.removeLineClass(hline, null);
+    hline = editor.addLineClass(editor.getCursor().line, "activeline");
     my.cursor = editor.getCursor();
     my.selection = editor.getSelection();
     send({
@@ -243,14 +242,14 @@ var triceratops = function() {
     info.text = unrollNext(info);
 
     console.log(info);
-    if (compareCursors(my.cursor, info.from)) {
-      // send({
-      //   workspace: workspace().name,
-      //   nick: my.nick, 
-      //   op: 'code', 
-      //   info: info,
-      //   code: editor.getValue()
-      // });
+    if (info.origin === 'input') {
+      send({
+        workspace: workspace().name,
+        nick: my.nick,
+        op: 'code',
+        info: info
+        // code: editor.getValue()
+      });
     }
   };
 
@@ -273,12 +272,14 @@ var triceratops = function() {
   var setupCodeMirror = function() {
     editor = CodeMirror.fromTextArea(document.getElementById('code'), {
       mode: "javascript",
-      lineNumbers: true,
-      onCursorActivity: cursorActivity, 
-      onChange: codeChange,
-      onKeyEvent: keyEvent
+      lineNumbers: true
+      // onCursorActivity: cursorActivity, 
+      // onChange: codeChange,
+      // onKeyEvent: keyEvent
     });
-    hline = editor.setLineClass(0, "activeline");
+    editor.on("change", codeChange);
+    editor.on("cursorActivity", cursorActivity);
+    hline = editor.addLineClass(0, "activeline");
   };
 
   var hatch = function() {
