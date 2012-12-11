@@ -238,30 +238,32 @@ var triceratops = function() {
   var unrollNext = function(info) {
     console.log(info);
     var full = joinIfArray(info.text);
-    if (!info.next && info.from.hasOwnProperty('outside')) {
+    var to = info.to;
+    if (!info.next && info.from.hasOwnProperty('outside') || info.text === '') {
       full += "\n";
     }
 
     while (info.next) {
       info = info.next;
+      to = info.to;
       full += "\n" + joinIfArray(info.text);
     }
 
-    return full;
+    return {text: full, to: to, from: info.from};
   };
 
   var codeChange = function(editor, info) {
     var my = self();
     my.cursor = editor.getCursor();
     my.selection = editor.getSelection();
-    info.text = unrollNext(info);
+    var message = unrollNext(info);
 
     if (info.origin === 'input') {
       send({
         workspace: workspace().name,
         nick: my.nick,
         op: 'code',
-        info: info
+        info: message
         // code: editor.getValue()
       });
     }

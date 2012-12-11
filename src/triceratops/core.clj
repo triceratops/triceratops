@@ -41,7 +41,8 @@
 
 (defn clean-cursors
   [cursor-haver]
-  (update-in cursor-haver [:cursors] #(mapmap deref %)))
+  cursor-haver)
+  ;; (update-in cursor-haver [:cursors] #(mapmap deref %)))
 
 (defn clean-coder
   [coder]
@@ -104,12 +105,12 @@
         coder (get @coders nick)
         pos {:line 0 :ch 0}
         color (:color coder)
-        cursor (ref (Cursor. space nick pos color))
+        cursor (Cursor. space nick pos color)
 
         workspace
         (or
          (get @workspaces space)
-         (Workspace. (permanent-channel) space [""] {nick cursor} [] {}))
+         (Workspace. (permanent-channel) space [""] {} [] {}))
 
         ;; coder-ch (fork (:ch coder))
         ;; workspace-ch (fork (:ch workspace))
@@ -136,8 +137,10 @@
   (let [[space nick workspace coder] (find-coder-workspace request)
         cursor (-> coder :cursors space)]
     (dosync
-     (alter cursor assoc :pos (request :cursor)))
-    (encode (assoc request :cursor (:pos @cursor)))))
+     (alter workspaces update-in [space :cursors nick :pos] (-> request :cursor constantly))
+     (alter coders update-in [nick :cursors space :pos] (-> request :cursor constantly)))
+     ;; (alter cursor assoc :pos (request :cursor)))
+    (encode (assoc request :cursor (:pos cursor)))))
 
 (defn split-newlines
   [s]
@@ -153,10 +156,14 @@
 (defn update-code
   [code from to text]
   (let [before (-> from :line inc (take code))
+        before-line (or (last before) "")
         after (-> to :line (drop code))
-        after-line (first after)
-        pre (.substring (last before) 0 (:ch from))
-        post (.substring after-line (:ch to) (count after-line))
+        after-line (or (first after) "")
+        pre-end (min (count before-line) (:ch from))
+        post-end (count after-line)
+        post-start (min (:ch to) post-end)
+        pre (.substring before-line 0 pre-end)
+        post (.substring after-line post-start post-end)
         lines (split-newlines text)
         first-line (first lines)
         center (str pre first-line)
