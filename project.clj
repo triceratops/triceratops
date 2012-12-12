@@ -7,9 +7,9 @@
                  [cheshire "5.0.1"]
                  [swank-clojure "1.4.2" :exclusions [clj-stacktrace]]]
   :jvm-opts ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"]
-  :ring {:handler triceratops.core/app
+  :ring {:handler triceratops.frontend/app
          :servlet-name "fuelgame-frontend"
-         :init triceratops.core/init
+         :init triceratops.frontend/init
          :port 11133}
   :main triceratops.core)
 
