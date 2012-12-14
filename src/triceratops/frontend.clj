@@ -26,6 +26,7 @@
      [:script {:src "/js/linkage.js"}]
      [:script {:src "/js/routing.js"}]
      [:script {:src "/js/triceratops.js"}]
+     [:script {:src "/js/gl.js"}]
      [:link {:rel "stylesheet" :href "/css/triceratops.css"}]]
     [:body 
      {:onload "triceratops.hatch()"
