@@ -43,7 +43,7 @@ var triceratops = function() {
   }
 
   var setCursor = function(ws, nick, cursor) {
-    console.log(nick+':'+cursor.line+'-'+cursor.ch);
+    // console.log(nick+':'+cursor.line+'-'+cursor.ch);
     var next = {line: cursor.line, ch: cursor.ch+1};
     if (coders()[nick]) {
       workspaces()[ws].cursors[nick] = cursor;
@@ -100,6 +100,7 @@ var triceratops = function() {
       workspaces.delIn([base.workspace, 'cursors', base.nick]);
       workspace.delIn(['cursors', base.nick]);
       coders.delIn([base.nick, 'cursors', base.workspace]);
+      if (cursors[base.nick]) cursors[base.nick].clear();
     }
   };
 
@@ -272,18 +273,17 @@ var triceratops = function() {
     }
 
     if (info.origin === 'delete') {
-      
+      return {text: '', from: from, to: to}
     } else if (!info.next && full === '') {
       full += "\n";
     }
-    // (info.from.hasOwnProperty('after') && info.from.after === false || 
 
     while (info.next) {
       info = info.next;
       full += "\n" + joinIfArray(info.text);
     }
 
-    return {text: full, to: to, from: from};
+    return {text: full, from: from, to: to};
   };
 
   var codeChange = function(editor, info) {
@@ -292,7 +292,7 @@ var triceratops = function() {
     my.selection = editor.getSelection();
     var message = unrollNext(info);
 
-    if (info.origin === 'input') {
+    if (info.origin === 'input' || info.origin === 'delete') {
       send({
         workspace: workspace().name,
         nick: my.nick,
