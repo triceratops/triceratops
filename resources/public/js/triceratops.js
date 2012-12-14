@@ -38,20 +38,29 @@ var triceratops = function() {
     }
   };
 
-  // CODERS
-  var updateCursor = function(message) {
-    var nick = message.nick;
-    var cursor = message.cursor;
-    var ws = message.workspace;
+  var isCurrentWorkspace = function(ws) {
+    return workspace().name === ws;
+  }
 
+  var setCursor = function(ws, nick, cursor) {
+    console.log(nick+':'+cursor.line+'-'+cursor.ch);
     var next = {line: cursor.line, ch: cursor.ch+1};
     if (coders()[nick]) {
-      if (cursors[nick]) cursors[nick].clear();
-      cursors[nick] = editor.markText(cursor, next, {className: nick+'cursor other'});
+      workspaces()[ws].cursors[nick] = cursor;
+      coders()[nick].cursors[ws] = cursor;
 
-      workspaces()[ws].cursors[nick] = message.cursor;
-      coders()[nick].cursors[ws] = message.cursor;
+      if (isCurrentWorkspace(ws)) {
+        if (cursors[nick]) cursors[nick].clear();
+        cursors[nick] = editor.markText(cursor, next, {className: nick+'cursor other'});
+      }
     }
+  }
+
+  var updateCursor = function(message) {
+    var ws = message.workspace;
+    var nick = message.nick;
+    var cursor = message.cursor;
+    setCursor(ws, nick, cursor);
   }
 
   var updateCode = function(message) {
@@ -66,9 +75,14 @@ var triceratops = function() {
 
   var coderJoin = function(base) {
     workspaces.update(base.workspace.name, base.workspace);
-    if (base.coder.nick === self().nick || base.workspace.name === workspace().name) {
+    var selfJoin = base.coder.nick === self().nick;
+    if (selfJoin || isCurrentWorkspace(base.workspace.name)) {
       workspace(base.workspace);
-      editor.setValue(base.workspace.code.join("\n"));
+      if (selfJoin) editor.setValue(base.workspace.code.join("\n"));
+      for (var nick in base.workspace.cursors) {
+        var cursor = base.workspace.cursors[nick].pos;
+        setCursor(base.workspace.name, nick, cursor);
+      }
     }
   };
 
