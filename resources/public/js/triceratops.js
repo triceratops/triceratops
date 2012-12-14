@@ -38,12 +38,20 @@ var triceratops = function() {
     }
   };
 
+  var evaluateCode = function(code) {
+    try {
+      eval(code);
+      $('#error').html('');
+    } catch(error) {
+      $('#error').html(error.name+': '+error.message);
+    }
+  }
+
   var isCurrentWorkspace = function(ws) {
     return workspace().name === ws;
   }
 
   var setCursor = function(ws, nick, cursor) {
-    // console.log(nick+':'+cursor.line+'-'+cursor.ch);
     var next = {line: cursor.line, ch: cursor.ch+1};
     if (coders()[nick]) {
       workspaces()[ws].cursors[nick] = cursor;
@@ -66,6 +74,7 @@ var triceratops = function() {
   var updateCode = function(message) {
     if (message.nick !== self().nick) {
       editor.replaceRange(message.info.text, message.info.from, message.info.to);
+      evaluateCode(editor.getValue());
     }
   }
 
@@ -78,11 +87,15 @@ var triceratops = function() {
     var selfJoin = base.coder.nick === self().nick;
     if (selfJoin || isCurrentWorkspace(base.workspace.name)) {
       workspace(base.workspace);
+
       if (selfJoin) editor.setValue(base.workspace.code.join("\n"));
+
       for (var nick in base.workspace.cursors) {
         var cursor = base.workspace.cursors[nick].pos;
         setCursor(base.workspace.name, nick, cursor);
       }
+
+      if (selfJoin) evaluateCode(editor.getValue());
     }
   };
 
@@ -300,6 +313,8 @@ var triceratops = function() {
         info: message
       });
     }
+
+    evaluateCode(editor.getValue());
   };
 
   // var keyEvent = function(ed, e) {

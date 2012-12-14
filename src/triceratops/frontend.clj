@@ -53,6 +53,7 @@
     [:div#voice
      [:input {:type "text"}]
      [:div#out]]
+    [:div#error]
     [:div#coders
      [:p "other coders"]
      [:ul]]
