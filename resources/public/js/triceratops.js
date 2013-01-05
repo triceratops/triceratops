@@ -8,13 +8,20 @@ var triceratops = function() {
   var workspaces = linkage.link({});
   var coders = linkage.link({});
 
+  var triceratopsHost = window.location.toString().match(/^https?:\/\/([^:/]+)/)[1];
+  var triceratopsPort = 11122;
+
+  var createWebSocket = function(host, port) {
+    return new WebSocket('ws://'+host+':'+port);
+  }
+
   // WEBSOCKETS
   var openWebSocket = function() {
     if (window.MozWebSocket) {
       window.WebSocket = window.MozWebSocket;
     }
     if (window.WebSocket) {
-      socket = new WebSocket('ws://127.0.0.1:11122');
+      socket = createWebSocket(triceratopsHost, triceratopsPort);
       socket.onopen    = function(event) { $('#alert').html('channel open!'); };
       socket.onclose   = function(event) { $('#alert').html('channel closed'); };
       socket.onmessage = function(event) { receive(event.data); };

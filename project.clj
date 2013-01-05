@@ -1,6 +1,8 @@
 (defproject triceratops "0.0.1"
   :description "collaborative realtime livecoding in the browser"
   :dependencies [[org.clojure/clojure "1.3.0"]
+                 [org.clojure/java.jdbc "0.2.3"]
+                 [postgresql/postgresql "8.4-702.jdbc4"]
                  [aleph "0.3.0-beta8"]
                  [compojure "1.1.3"]
                  [hiccup "1.0.2"]

@@ -251,8 +251,9 @@
   the channel it will use to broadcast to other coders."
   [ch handshake]
   (let [decoded (map* decode ch)
-        filtered (filter* #(get base-commands (-> % :op keyword)) decoded)]
-    (siphon (map* (respond-to base-commands [ch]) filtered) broadcast)
+        filtered (filter* #(get base-commands (-> % :op keyword)) decoded)
+        response (respond-to base-commands [ch])]
+    (siphon (map* response filtered) broadcast)
     (siphon broadcast ch)))
 
 (defn start-websockets
